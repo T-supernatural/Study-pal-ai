@@ -12,7 +12,7 @@ import AudioTab from "./components/AudioTab";
 import ProfileTab from "./components/ProfileTab";
 import BottomNav from "./components/BottomNav";
 import { Onboarding } from "./components/Onboarding";
-import { Sparkles, Moon, Sun, Layers, HelpCircle, Trophy, Award, Zap, BookOpen } from "lucide-react";
+import { Sparkles, Moon, Sun, Layers, HelpCircle, Trophy, Award, Zap, BookOpen, Clock } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 function AppContent() {
@@ -44,43 +44,55 @@ function AppContent() {
   }[themeMode];
 
   const getBadgeDetails = (badgeId: string) => {
-    switch (badgeId) {
-      case "paladin-focus":
-        return {
-          title: "Paladin of Focus",
-          desc: "You have studied for more than 150 minutes total. True devotion!",
-          color: "from-orange-400 to-amber-500",
-          icon: Trophy,
-        };
-      case "perfect-10":
-        return {
-          title: "Perfect 10",
-          desc: "You scored 100% on a study practice quiz! Absolute genius!",
-          color: "from-green-400 to-emerald-500",
-          icon: Award,
-        };
-      case "curator-wisdom":
-        return {
-          title: "Curator of Wisdom",
-          desc: "You created 4+ premium Study Packs! Building your archive of knowledge.",
-          color: "from-purple-400 to-indigo-500",
-          icon: BookOpen,
-        };
-      case "consistency-champ":
-        return {
-          title: "Consistency Champ",
-          desc: "Maintained an elite 5-day study streak! Unstoppable dedication.",
-          color: "from-blue-400 to-indigo-500",
-          icon: Zap,
-        };
-      default:
-        return {
-          title: "Milestone Unlocked!",
-          desc: "Congratulations on your study achievements!",
-          color: "from-yellow-400 to-amber-500",
-          icon: Sparkles,
-        };
-    }
+    const parts = badgeId.split("-");
+    const track = parts[0];
+    const levelNum = parseInt(parts[1]) || 1;
+    
+    const tiers = [
+      { tier: "Bronze", color: "from-amber-600 to-amber-800", icon: Trophy },
+      { tier: "Silver", color: "from-slate-400 to-slate-500", icon: Trophy },
+      { tier: "Gold", color: "from-yellow-400 to-amber-500", icon: Trophy },
+      { tier: "Platinum", color: "from-teal-400 to-cyan-500", icon: Trophy },
+      { tier: "Diamond", color: "from-blue-400 to-indigo-500 animate-pulse", icon: Trophy },
+    ];
+    
+    const tierInfo = tiers[levelNum - 1] || tiers[0];
+    
+    const tracks: Record<string, { title: string; desc: string; icon: any }> = {
+      focus: {
+        title: `Focus Paladin (${tierInfo.tier})`,
+        desc: `You have unlocked the ${tierInfo.tier} tier for active study time! Keep focused to reach higher milestones.`,
+        icon: Clock,
+      },
+      consistency: {
+        title: `Consistency Champ (${tierInfo.tier})`,
+        desc: `You have unlocked the ${tierInfo.tier} tier for your study streak! Your dedication is inspiring.`,
+        icon: Zap,
+      },
+      curator: {
+        title: `Curator of Wisdom (${tierInfo.tier})`,
+        desc: `You have unlocked the ${tierInfo.tier} tier for lesson packs created! You are archiving massive knowledge.`,
+        icon: BookOpen,
+      },
+      quiz: {
+        title: `Quiz Master (${tierInfo.tier})`,
+        desc: `You have unlocked the ${tierInfo.tier} tier for scoring 100% on quizzes! True intellectual mastery!`,
+        icon: Award,
+      }
+    };
+    
+    const trackInfo = tracks[track] || {
+      title: "Milestone Unlocked!",
+      desc: "Congratulations on your study achievements!",
+      icon: Sparkles
+    };
+    
+    return {
+      title: trackInfo.title,
+      desc: trackInfo.desc,
+      color: tierInfo.color,
+      icon: trackInfo.icon
+    };
   };
 
   const badgeInfo = recentlyUnlockedBadge ? getBadgeDetails(recentlyUnlockedBadge) : null;
@@ -138,7 +150,7 @@ function AppContent() {
         </header>
 
         {/* MAIN VIEW CONTENT CONTAINER */}
-        <main className="flex-1 overflow-y-auto px-6 pt-5 pb-10 no-scrollbar relative z-10">
+        <main className="flex-1 overflow-y-auto px-6 pt-5 pb-32 no-scrollbar relative z-10">
           {renderActiveTab()}
         </main>
 

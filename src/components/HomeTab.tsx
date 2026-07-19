@@ -226,7 +226,7 @@ export const HomeTab: React.FC = () => {
 
       {/* 5. Notifications Drawer Modal Overlay */}
       {isNotificationsOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-t-[32px] p-6 shadow-2xl border-t border-[#A9C0E0]/20 space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar animate-slideUp">
             
             {/* Drawer Header */}

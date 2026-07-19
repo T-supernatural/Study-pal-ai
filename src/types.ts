@@ -44,6 +44,7 @@ export interface StudyNote {
   tickedConcepts?: string[]; // track which core concepts have been checked off
   audioListened?: boolean; // track if the student listened to the audio
   quizHighScore?: number; // highest score on the quiz (out of 100)
+  chatHistory?: { role: "user" | "model"; text: string }[];
 }
 
 export interface LearningStats {

@@ -3,11 +3,13 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { GoogleGenAI } from "@google/genai";
+import http from "http";
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+const server = http.createServer(app);
 
 // Body parsing with limits appropriate for image/PDF upload handling
 app.use(express.json({ limit: "25mb" }));
@@ -79,7 +81,12 @@ app.post("/api/gemini", async (req, res) => {
 async function configureFrontend() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true,
+        hmr: {
+          server,
+        }
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -91,7 +98,7 @@ async function configureFrontend() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`StudyPal AI Server is running on port ${PORT}`);
   });
 }

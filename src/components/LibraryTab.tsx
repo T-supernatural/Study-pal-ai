@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "../context/AppContext";
 import { NeumorphicCard } from "./NeumorphicCard";
 import { GlassPanel } from "./GlassPanel";
@@ -6,7 +6,8 @@ import {
   ChevronLeft, Search, Edit2, Play, CheckCircle, HelpCircle, 
   Trash2, Brain, Sparkles, BookOpen, Volume2, Check, AlertCircle,
   Clock, Award, ListChecks, GraduationCap, Target, Pause, RotateCcw, 
-  ArrowRight, Eye, FastForward, CheckSquare, Square, Save, Smile, X
+  ArrowRight, Eye, FastForward, CheckSquare, Square, Save, Smile, X,
+  MessageSquare
 } from "lucide-react";
 import { StudyNote, QuizQuestion, Flashcard } from "../types";
 
@@ -30,7 +31,7 @@ export const LibraryTab: React.FC = () => {
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
-  const [activeStudyTab, setActiveStudyTab] = useState<"notes" | "summary" | "flashcards" | "quiz">("notes");
+  const [activeStudyTab, setActiveStudyTab] = useState<"notes" | "summary" | "flashcards" | "quiz" | "tutor">("notes");
   
   // Flashcards Indexing
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
@@ -51,6 +52,189 @@ export const LibraryTab: React.FC = () => {
   // Editing Raw Text State
   const [isEditingRaw, setIsEditingRaw] = useState(false);
   const [editedTextContent, setEditedTextContent] = useState("");
+
+  // Smart Vocabulary State & Handlers
+  const [selectedVocab, setSelectedVocab] = useState<{
+    term: string;
+    pronunciation: string;
+    definition: string;
+    simpleExplanation: string;
+    examples: string[];
+  } | null>(null);
+  const [isSearchingVocab, setIsSearchingVocab] = useState(false);
+  const [vocabSearchInput, setVocabSearchInput] = useState("");
+
+  const handleVocabLookup = async (term: string, preDefinedDefinition?: string) => {
+    if (!term.trim() || !activeNote) return;
+    setIsSearchingVocab(true);
+
+    try {
+      const systemInstruction = `
+        You are an elite dictionary, linguist, and clear academic tutor.
+        The student is studying ${activeNote.category} / ${activeNote.title}.
+        Provide a phonetic pronunciation guide, a standard definition, a simple intuitive explanation or analogy, and 2 helpful practical examples.
+        You must output EXACTLY a single JSON object with this schema:
+        {
+          "term": "the term",
+          "pronunciation": "approximate phonetic guide, e.g. [ foh-toh-sin-thuh-sis ]",
+          "definition": "academic definition",
+          "simpleExplanation": "intuitive explanation or analogy",
+          "examples": ["example 1", "example 2"]
+        }
+      `;
+
+      const prompt = `
+        Explain the term "${term}". 
+        ${preDefinedDefinition ? `The known standard definition is: "${preDefinedDefinition}". Incorporate this into the "definition" field.` : ""}
+      `;
+
+      const response = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              term: { type: "STRING" },
+              pronunciation: { type: "STRING" },
+              definition: { type: "STRING" },
+              simpleExplanation: { type: "STRING" },
+              examples: { type: "ARRAY", items: { type: "STRING" } }
+            },
+            required: ["term", "pronunciation", "definition", "simpleExplanation", "examples"]
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("Could not fetch dictionary data");
+      }
+
+      const resData = await response.json();
+      const parsed = JSON.parse(resData.text);
+      setSelectedVocab(parsed);
+      incrementStudyMinutes(1); // reward active curiosity
+    } catch (err) {
+      console.error("Vocabulary lookup error:", err);
+      setSelectedVocab({
+        term: term,
+        pronunciation: `[ ${term.toLowerCase()} ]`,
+        definition: preDefinedDefinition || "The precise definition was not found, but you can ask our interactive AI Tutor in the Ask AI tab for more info!",
+        simpleExplanation: "A key concept related to the current study materials.",
+        examples: ["Consult the lesson text and Ask AI tutor for deep examples!"]
+      });
+    } finally {
+      setIsSearchingVocab(false);
+    }
+  };
+
+  // AI Tutor States & Handlers
+  const [chatInput, setChatInput] = useState("");
+  const [isTutorTyping, setIsTutorTyping] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
+
+  const handleClearChat = async () => {
+    if (!activeNote) return;
+    const updated = {
+      ...activeNote,
+      chatHistory: []
+    };
+    await updateNote(updated);
+  };
+
+  const handleSendQuestion = async (question: string) => {
+    if (!activeNote || isTutorTyping || !question.trim()) return;
+    
+    const previousHistory = activeNote.chatHistory || [];
+    const newHistory = [...previousHistory, { role: "user" as const, text: question }];
+    
+    const noteWithUserMsg = {
+      ...activeNote,
+      chatHistory: newHistory
+    };
+    await updateNote(noteWithUserMsg);
+    
+    setIsTutorTyping(true);
+    
+    setTimeout(() => {
+      chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+
+    try {
+      const systemInstruction = `
+        You are an expert academic tutor and StudyPal AI companion. 
+        The student is studying the attached lesson material. 
+        Your goal is to answer their follow-up questions, provide simpler explanations, translate difficult terms, or give custom examples as requested.
+        Keep your tone encouraging, professional, and clear. Use markdown/formatting where helpful. Keep responses highly focused, clear, and display-friendly for a mobile screen.
+      `;
+
+      const prompt = `
+Lesson Title: ${activeNote.title}
+Lesson Subject: ${activeNote.category}
+Lesson Material Context:
+"""
+${activeNote.textContent}
+"""
+
+Here is the conversation history so far:
+${newHistory.slice(0, -1).map(m => `${m.role === "user" ? "Student" : "StudyPal AI"}: ${m.text}`).join("\n")}
+
+Student: ${question}
+StudyPal AI:
+      `;
+
+      const response = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          systemInstruction,
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error("AI Tutor is currently busy. Please try again.");
+      }
+
+      const resData = await response.json();
+      const answerText = resData.text || "I apologize, I didn't get a response. Could you try asking again?";
+      
+      const finalHistory = [...newHistory, { role: "model" as const, text: answerText }];
+      
+      const finalNote = {
+        ...activeNote,
+        chatHistory: finalHistory
+      };
+      await updateNote(finalNote);
+      incrementStudyMinutes(2); // reward for active chat tutor focus
+      
+    } catch (err) {
+      console.error("AI Tutor Chat error:", err);
+      const finalHistory = [...newHistory, { role: "model" as const, text: "I'm having trouble connecting to my knowledge base right now. Please verify your internet connection or Gemini API key and try again." }];
+      const finalNote = {
+        ...activeNote,
+        chatHistory: finalHistory
+      };
+      await updateNote(finalNote);
+    } finally {
+      setIsTutorTyping(false);
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  };
+
+  // Auto-scroll inside Tutor chat
+  useEffect(() => {
+    if (activeStudyTab === "tutor") {
+      setTimeout(() => {
+        chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 120);
+    }
+  }, [activeStudyTab, activeNote?.chatHistory, isTutorTyping]);
 
   // List categories dynamically
   const categories = ["All", ...Array.from(new Set(notes.map((n) => n.category)))];
@@ -202,7 +386,7 @@ export const LibraryTab: React.FC = () => {
     <>
       {/* Deletion Confirmation Modal Overlay */}
       {deleteCandidateId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="w-full max-w-[280px] bg-white rounded-3xl p-5 shadow-2xl border border-powder/20 space-y-4 animate-scaleIn">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 mx-auto">
               <AlertCircle className="w-5 h-5" />
@@ -264,6 +448,85 @@ export const LibraryTab: React.FC = () => {
               className="text-xs font-bold text-zinc-500 hover:text-zinc-400 p-1"
             >
               <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Smart Vocabulary detail overlay bottom-sheet/modal */}
+      {selectedVocab && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-end justify-center sm:items-center p-0 sm:p-6">
+          <div className="absolute inset-0 cursor-pointer" onClick={() => setSelectedVocab(null)} />
+          
+          <div className="w-full max-w-sm bg-white rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl border border-powder/20 space-y-4 animate-slideUp relative z-10 text-left pb-10 sm:pb-5">
+            <div className="flex items-center justify-between border-b border-[#A9C0E0]/20 pb-2">
+              <span className="text-[9px] font-mono uppercase tracking-widest text-purple-600 font-bold bg-purple-50 px-2 py-0.5 rounded-full">
+                Active Smart Vocab
+              </span>
+              <button 
+                onClick={() => setSelectedVocab(null)}
+                className="text-powder hover:text-royal p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h3 className="font-display text-base font-black text-royal">{selectedVocab.term}</h3>
+                <button
+                  onClick={() => {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(selectedVocab.term);
+                    window.speechSynthesis.speak(utterance);
+                  }}
+                  className="w-7 h-7 rounded-full bg-purple-50 hover:bg-purple-100 flex items-center justify-center text-purple-500 transition-colors"
+                  title="Listen Pronunciation"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <p className="text-[10px] font-mono text-purple-500 font-bold">{selectedVocab.pronunciation}</p>
+            </div>
+
+            <div className="space-y-3 pt-1">
+              <div className="space-y-1">
+                <h4 className="text-[9px] font-mono uppercase tracking-wider text-powder font-bold">Academic Definition</h4>
+                <p className="text-xs text-royal/90 leading-relaxed font-semibold bg-[#F4FEFF] p-3 rounded-2xl border border-purple-100/40">
+                  {selectedVocab.definition}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <h4 className="text-[9px] font-mono uppercase tracking-wider text-powder font-bold flex items-center gap-1 text-amber-600">
+                  <Sparkles className="w-3 h-3 animate-pulse" />
+                  Intuitive Explanation
+                </h4>
+                <p className="text-xs text-royal/80 leading-relaxed font-medium pl-1">
+                  {selectedVocab.simpleExplanation}
+                </p>
+              </div>
+
+              {selectedVocab.examples && selectedVocab.examples.length > 0 && (
+                <div className="space-y-1.5">
+                  <h4 className="text-[9px] font-mono uppercase tracking-wider text-powder font-bold">Academic Examples</h4>
+                  <div className="space-y-1 pl-1">
+                    {selectedVocab.examples.map((ex, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-[11px] text-royal/75 leading-normal">
+                        <span className="text-purple-500 font-black mt-0.5">•</span>
+                        <span>{ex}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setSelectedVocab(null)}
+              className="w-full py-3 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 text-white font-bold text-xs shadow-md shadow-purple-100 mt-2"
+            >
+              Back to Lesson
             </button>
           </div>
         </div>
@@ -390,12 +653,13 @@ export const LibraryTab: React.FC = () => {
         </NeumorphicCard>
 
         {/* Detailed Study Segment Switcher */}
-        <div className="liquid-glass p-1 rounded-full flex justify-between gap-1 shadow-sm">
+        <div className="liquid-glass p-1 rounded-full flex justify-between gap-1 shadow-sm overflow-x-auto no-scrollbar">
           {[
             { id: "notes", label: "OCR notes", icon: BookOpen },
             { id: "summary", label: "Listen Guide", icon: Sparkles },
             { id: "flashcards", label: "Cards", icon: Brain },
             { id: "quiz", label: "Quiz Test", icon: HelpCircle },
+            { id: "tutor", label: "Ask AI", icon: MessageSquare },
           ].map((tab) => {
             const Icon = tab.icon;
             const isTabActive = activeStudyTab === tab.id;
@@ -466,6 +730,71 @@ export const LibraryTab: React.FC = () => {
                   {activeNote.textContent}
                 </p>
               )}
+            </NeumorphicCard>
+
+            {/* Smart Vocabulary List */}
+            <NeumorphicCard className="relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-purple-400/5 to-royal/0 rounded-full pointer-events-none" />
+              <div className="flex items-center justify-between pb-3 border-b border-[#A9C0E0]/20">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-powder font-bold flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4 text-purple-500" />
+                  Smart Vocabulary (Tappable)
+                </span>
+                <span className="text-[8px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full border border-purple-100 font-bold">
+                  Instant Lookups
+                </span>
+              </div>
+              <p className="text-[10px] text-royal/75 mt-2 mb-3 leading-relaxed">
+                Tap any core term below for pronunciation, simplified analogies, and real-world examples. Or search any custom word!
+              </p>
+
+              {/* Lookup Search bar */}
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  placeholder={isSearchingVocab ? "Analyzing word..." : "Type any word to define..."}
+                  value={vocabSearchInput}
+                  onChange={(e) => setVocabSearchInput(e.target.value)}
+                  disabled={isSearchingVocab}
+                  className="flex-1 px-3 py-1.5 bg-[#F4FEFF] border border-[#A9C0E0]/20 rounded-xl text-[11px] font-semibold text-royal focus:outline-none focus:border-purple-300 disabled:opacity-60"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && vocabSearchInput.trim() && !isSearchingVocab) {
+                      handleVocabLookup(vocabSearchInput.trim());
+                      setVocabSearchInput("");
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (vocabSearchInput.trim() && !isSearchingVocab) {
+                      handleVocabLookup(vocabSearchInput.trim());
+                      setVocabSearchInput("");
+                    }
+                  }}
+                  disabled={isSearchingVocab || !vocabSearchInput.trim()}
+                  className="px-3 py-1.5 bg-gradient-to-tr from-purple-500 to-indigo-600 text-white rounded-xl text-[10px] font-black shadow-md hover:scale-102 active:scale-98 transition-transform disabled:opacity-40"
+                >
+                  {isSearchingVocab ? "Analyzing..." : "Look Up"}
+                </button>
+              </div>
+
+              {/* Display dynamic tappable pills of definitions */}
+              <div className="flex flex-wrap gap-1.5">
+                {activeNote.importantDefinitions && activeNote.importantDefinitions.length > 0 ? (
+                  activeNote.importantDefinitions.map((item) => (
+                    <button
+                      key={item.term}
+                      onClick={() => handleVocabLookup(item.term, item.definition)}
+                      className="px-2.5 py-1.5 bg-purple-50/70 hover:bg-purple-50 text-royal text-[10px] font-black rounded-xl border border-purple-100/60 hover:border-purple-300 transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{item.term}</span>
+                      <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-[9px] text-royal/60">No glossary terms found. Use the lookup bar above to define any concept!</p>
+                )}
+              </div>
             </NeumorphicCard>
 
             {/* Checkable Concepts */}
@@ -1056,6 +1385,125 @@ export const LibraryTab: React.FC = () => {
                 No quiz questions generated for this note.
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab 5: AI Tutor Chat */}
+        {activeStudyTab === "tutor" && (
+          <div className="space-y-4 flex flex-col h-[500px]">
+            {/* Header / Info bar */}
+            <div className="flex items-center justify-between pb-2 border-b border-[#A9C0E0]/20 text-left">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-powder font-bold flex items-center gap-1.5">
+                <Brain className="w-4 h-4 text-purple-500 fill-purple-500/10 stroke-[2.2]" />
+                Interactive AI Tutor
+              </span>
+              <button 
+                onClick={handleClearChat}
+                className="text-[9px] font-mono font-bold text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100/50 px-2.5 py-0.5 rounded-full"
+              >
+                Reset Chat
+              </button>
+            </div>
+
+            {/* Chat message bubbles list */}
+            <div className="flex-1 overflow-y-auto space-y-3 p-3 neumorphic-inset rounded-2xl max-h-[360px] min-h-[300px] flex flex-col no-scrollbar">
+              {(!activeNote.chatHistory || activeNote.chatHistory.length === 0) ? (
+                <div className="my-auto text-center space-y-3 px-4 py-6">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-400 to-indigo-500 text-white flex items-center justify-center mx-auto shadow-md">
+                    <Sparkles className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-xs font-black text-royal">Ask StudyPal AI Tutor</h4>
+                    <p className="text-[10px] text-royal/60 leading-relaxed max-w-xs mx-auto">
+                      Need a simpler explanation, academic examples, or have follow-up questions? Just ask! Your chat is saved automatically.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-1.5 pt-2">
+                    {[
+                      "Explain this like I'm 10",
+                      "Give me real-life examples",
+                      "Summarize main takeaways",
+                    ].map((suggestedPrompt) => (
+                      <button
+                        key={suggestedPrompt}
+                        onClick={() => handleSendQuestion(suggestedPrompt)}
+                        className="text-[9px] font-bold text-royal/80 bg-white/75 hover:bg-white border border-[#A9C0E0]/15 hover:border-royal/30 px-3 py-1.5 rounded-full transition-all"
+                      >
+                        {suggestedPrompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 text-left">
+                  {activeNote.chatHistory.map((msg, idx) => {
+                    const isUser = msg.role === "user";
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`flex ${isUser ? "justify-end" : "justify-start"} items-start gap-2.5`}
+                      >
+                        {!isUser && (
+                          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-400 to-indigo-500 text-white flex items-center justify-center shadow-sm text-[10px] shrink-0 font-extrabold">
+                            AI
+                          </div>
+                        )}
+                        <div className={`
+                          max-w-[80%] rounded-2xl px-3.5 py-2 text-xs font-medium leading-relaxed shadow-sm border
+                          ${isUser 
+                            ? "bg-royal text-white border-royal/20 rounded-tr-none" 
+                            : "bg-[#F4FEFF] text-royal border-[#A9C0E0]/15 rounded-tl-none"
+                          }
+                        `}>
+                          <p className="whitespace-pre-line">{msg.text}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {isTutorTyping && (
+                    <div className="flex justify-start items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-400 to-indigo-500 text-white flex items-center justify-center shadow-sm text-[10px] shrink-0 font-extrabold animate-pulse">
+                        AI
+                      </div>
+                      <div className="bg-[#F4FEFF] text-royal border border-[#A9C0E0]/15 rounded-2xl rounded-tl-none px-3.5 py-3 shadow-sm text-xs font-semibold flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-royal animate-bounce" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-royal animate-bounce [animation-delay:0.2s]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-royal animate-bounce [animation-delay:0.4s]" />
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatBottomRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Chat Input form */}
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (chatInput.trim()) {
+                  handleSendQuestion(chatInput.trim());
+                  setChatInput("");
+                }
+              }}
+              className="flex gap-2 items-center"
+            >
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask follow-up, get examples, simplify..."
+                disabled={isTutorTyping}
+                className="flex-1 bg-white border border-[#A9C0E0]/25 rounded-full px-4 py-3 text-xs font-semibold text-royal focus:outline-none focus:border-royal/40 shadow-sm disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim() || isTutorTyping}
+                className="w-11 h-11 rounded-full bg-gradient-to-tr from-royal to-blue-600 text-white flex items-center justify-center shadow-md soft-glow-blue disabled:opacity-40 hover:scale-105 active:scale-95 transition-transform shrink-0"
+              >
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </form>
           </div>
         )}
         {renderOverlays()}

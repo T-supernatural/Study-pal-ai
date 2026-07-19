@@ -49,7 +49,12 @@ const defaultStats: LearningStats = {
   completedLessonsToday: 2,
   totalStudyMinutes: 120,
   lessonsHistoryCount: 3,
-  unlockedBadges: ["streak-master"],
+  unlockedBadges: [
+    "consistency-1", "consistency-2",
+    "focus-1", "focus-2",
+    "curator-1", "curator-2",
+    "quiz-1"
+  ],
 };
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -179,43 +184,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newUnlocked = [...currentUnlocked];
     let newlyUnlockedId: string | null = null;
 
-    // Badge 1: Paladin of Focus (totalStudyMinutes >= 150)
-    if (updatedStats.totalStudyMinutes >= 150 && !newUnlocked.includes("paladin-focus")) {
-      newUnlocked.push("paladin-focus");
-      newlyUnlockedId = "paladin-focus";
+    // Define Progressive Thresholds
+    const thresholds = {
+      focus: { name: "Focus Paladin", levels: [15, 60, 150, 300, 600] },
+      consistency: { name: "Consistency Champ", levels: [1, 3, 5, 10, 21] },
+      curator: { name: "Curator of Wisdom", levels: [1, 3, 5, 10, 20] },
+      quiz: { name: "Quiz Master", levels: [1, 2, 4, 7, 12] },
+    };
+
+    const tiers = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+
+    // Focus Paladin
+    for (let l = 1; l <= 5; l++) {
+      const val = thresholds.focus.levels[l - 1];
+      const badgeCode = `focus-${l}`;
+      if (updatedStats.totalStudyMinutes >= val && !newUnlocked.includes(badgeCode)) {
+        newUnlocked.push(badgeCode);
+        newlyUnlockedId = badgeCode;
+      }
     }
 
-    // Badge 2: Perfect 10 (completed quiz with 100)
-    if (recentQuizScore === 100 && !newUnlocked.includes("perfect-10")) {
-      newUnlocked.push("perfect-10");
-      newlyUnlockedId = "perfect-10";
+    // Consistency Champ
+    for (let l = 1; l <= 5; l++) {
+      const val = thresholds.consistency.levels[l - 1];
+      const badgeCode = `consistency-${l}`;
+      if (updatedStats.streakDays >= val && !newUnlocked.includes(badgeCode)) {
+        newUnlocked.push(badgeCode);
+        newlyUnlockedId = badgeCode;
+      }
     }
 
-    // Badge 3: Curator of Wisdom (lessonsHistoryCount >= 4)
-    if (updatedStats.lessonsHistoryCount >= 4 && !newUnlocked.includes("curator-wisdom")) {
-      newUnlocked.push("curator-wisdom");
-      newlyUnlockedId = "curator-wisdom";
+    // Curator of Wisdom
+    for (let l = 1; l <= 5; l++) {
+      const val = thresholds.curator.levels[l - 1];
+      const badgeCode = `curator-${l}`;
+      if (updatedStats.lessonsHistoryCount >= val && !newUnlocked.includes(badgeCode)) {
+        newUnlocked.push(badgeCode);
+        newlyUnlockedId = badgeCode;
+      }
     }
 
-    // Badge 4: Consistency Champ (streakDays >= 5)
-    if (updatedStats.streakDays >= 5 && !newUnlocked.includes("consistency-champ")) {
-      newUnlocked.push("consistency-champ");
-      newlyUnlockedId = "consistency-champ";
+    // Quiz Master
+    let perfectQuizCount = notes.filter((n) => n.quizHighScore === 100).length;
+    if (recentQuizScore === 100) {
+      perfectQuizCount = Math.max(perfectQuizCount, 1);
+    }
+    for (let l = 1; l <= 5; l++) {
+      const val = thresholds.quiz.levels[l - 1];
+      const badgeCode = `quiz-${l}`;
+      if (perfectQuizCount >= val && !newUnlocked.includes(badgeCode)) {
+        newUnlocked.push(badgeCode);
+        newlyUnlockedId = badgeCode;
+      }
     }
 
     if (newlyUnlockedId) {
       setRecentlyUnlockedBadge(newlyUnlockedId);
       
-      // Push Achievement Notification
-      const badgeNames: Record<string, string> = {
-        "paladin-focus": "Paladin of Focus 🛡️",
-        "perfect-10": "Perfect 10 🏆",
-        "curator-wisdom": "Curator of Wisdom 🧠",
-        "consistency-champ": "Consistency Champ 🔥",
-      };
+      const parts = newlyUnlockedId.split("-");
+      const trackId = parts[0];
+      const levelNum = parseInt(parts[1]) || 1;
+      const tierName = tiers[levelNum - 1] || "Bronze";
+      const trackName = (thresholds as any)[trackId]?.name || "Milestone Master";
+
       addNotification(
-        `New Badge Unlocked: ${badgeNames[newlyUnlockedId] || "Milestone Master"}!`,
-        `Amazing job! You've unlocked a new achievement badge. Head over to your profile to display it!`,
+        `Achievement Unlocked: ${trackName} (${tierName})! 🏆`,
+        `Sensational! You have unlocked the ${tierName} level of your ${trackName} badge. Keep up the amazing work!`,
         "achievement"
       );
 

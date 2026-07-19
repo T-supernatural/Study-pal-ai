@@ -439,6 +439,7 @@ export const UploadTab: React.FC = () => {
         2. Filter out random margin doodles, page numbers, unrelated teacher grades (e.g., 'A+', 'Well done!'), or unrelated personal remarks ('buy milk', etc.).
         3. Do NOT hallucinate new core educational facts that deviate from or contradict the user's uploaded material. However, expand abbreviations, define terms clearly, and present the concepts with rich academic detail to make them fully learnable.
         4. You must output EXACTLY a single JSON object. Ensure every property in the requested schema is fully populated with deep, premium, non-trivial content.
+        5. The generated "title" MUST be highly concise, elegant, and display-friendly—strictly no more than 3-4 words (maximum 25 characters) to prevent text overflow on mobile screens (e.g., "Mitosis & Cell Division", "Basic Derivatives"). Do NOT use long, wordy titles.
       `;
 
       // Prompt to request full structured outputs
@@ -451,6 +452,7 @@ export const UploadTab: React.FC = () => {
         
         Synthesize a premium, fully-realized Study Pack based on this material.
         Make sure the:
+        - "title" is extremely concise, elegant, display-friendly, and strictly under 25 characters (max 3-4 words).
         - "category" matches standard subjects (e.g., Biology, Chemistry, Physics, Mathematics, History, Literature, Computer Science, Economics).
         - "summary" is a tight, elegant summary of 100 to 150 words.
         - "detailedSummary" is a comprehensive, structured lesson summary with markdown headers, bold terms, and key points.
@@ -695,6 +697,7 @@ export const UploadTab: React.FC = () => {
         You are an elite, world-class academic tutor and study architect. 
         Your task is to take extracted text and restructure it into an elegant, comprehensive, and highly engaging Study Pack.
         Ensure every property in the requested schema is fully populated with deep, premium, non-trivial content.
+        The generated "title" MUST be highly concise, elegant, and display-friendly—strictly no more than 3-4 words (maximum 25 characters) to prevent text overflow on mobile screens (e.g., "Mitosis & Cell Division", "Basic Derivatives"). Do NOT use long, wordy titles.
       `;
 
       const prompt = `
@@ -706,6 +709,7 @@ export const UploadTab: React.FC = () => {
         
         Synthesize a premium, fully-realized Study Pack based on this material.
         Make sure the:
+        - "title" is extremely concise, elegant, display-friendly, and strictly under 25 characters (max 3-4 words).
         - "category" matches standard subjects (Biology, Mathematics, or History).
         - "summary" is a tight, elegant summary of 100 to 150 words.
         - "detailedSummary" is a comprehensive, structured lesson summary with markdown headers, bold terms, and key points.
@@ -1211,7 +1215,7 @@ export const UploadTab: React.FC = () => {
 
       {/* Live Camera Modal Overlay */}
       {isCameraActive && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-6">
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex flex-col justify-between p-6">
           <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center space-y-6">
             <div className="text-center space-y-1">
               <h3 className="font-display text-base font-bold text-white">Camera Capture</h3>

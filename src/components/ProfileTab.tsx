@@ -9,7 +9,7 @@ import {
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 
 export const ProfileTab: React.FC = () => {
-  const { stats, studentIdentity, updateIdentity } = useApp();
+  const { notes, stats, studentIdentity, updateIdentity } = useApp();
   const [isEditing, setIsEditing] = useState(false);
 
   // Edit fields state
@@ -39,45 +39,65 @@ export const ProfileTab: React.FC = () => {
     { name: "Sun", minutes: baseSun },
   ];
 
-  const badgeDefinitions = [
-    { 
-      id: "streak-master",
-      title: "Streak Master", 
-      desc: "Maintained a 3+ day study streak", 
-      icon: Trophy, 
-      color: "from-yellow-400 to-amber-500" 
+  const progressiveTracks = [
+    {
+      id: "focus",
+      title: "Focus Paladin",
+      metric: "Minutes Studied",
+      currentValue: stats.totalStudyMinutes,
+      levels: [15, 60, 150, 300, 600],
+      icon: Clock,
+      color: "from-orange-400 to-amber-500"
     },
-    { 
-      id: "paladin-focus",
-      title: "Paladin of Focus", 
-      desc: "Logged over 150 total minutes of active study", 
-      icon: Zap, 
-      color: "from-orange-400 to-amber-500" 
+    {
+      id: "consistency",
+      title: "Consistency Champ",
+      metric: "Day Streak",
+      currentValue: stats.streakDays,
+      levels: [1, 3, 5, 10, 21],
+      icon: Zap,
+      color: "from-yellow-400 to-amber-500"
     },
-    { 
-      id: "perfect-10",
-      title: "Perfect 10", 
-      desc: "Achieved a flawless 100% score on any study pack quiz", 
-      icon: ShieldCheck, 
-      color: "from-green-400 to-emerald-500" 
+    {
+      id: "curator",
+      title: "Curator of Wisdom",
+      metric: "Lessons Scanned",
+      currentValue: stats.lessonsHistoryCount,
+      levels: [1, 3, 5, 10, 20],
+      icon: BookOpen,
+      color: "from-purple-400 to-indigo-500"
     },
-    { 
-      id: "curator-wisdom",
-      title: "Curator of Wisdom", 
-      desc: "Scanned and processed 4+ custom Study Packs", 
-      icon: Sparkles, 
-      color: "from-purple-400 to-indigo-500" 
-    },
-    { 
-      id: "consistency-champ",
-      title: "Consistency Champ", 
-      desc: "Unlocked an elite 5-day study streak", 
-      icon: Award, 
-      color: "from-blue-400 to-indigo-500" 
-    },
+    {
+      id: "quiz",
+      title: "Quiz Master",
+      metric: "Perfect Quizzes",
+      currentValue: notes.filter(n => n.quizHighScore === 100).length,
+      levels: [1, 2, 4, 7, 12],
+      icon: Award,
+      color: "from-emerald-400 to-teal-500"
+    }
   ];
 
-  const unlockedSet = new Set(stats.unlockedBadges || ["streak-master"]);
+  const unlockedSet = new Set(stats.unlockedBadges || []);
+
+  const getUnlockedLevel = (trackId: string) => {
+    let highest = 0;
+    for (let l = 1; l <= 5; l++) {
+      if (unlockedSet.has(`${trackId}-${l}`)) {
+        highest = l;
+      }
+    }
+    return highest;
+  };
+
+  const tiers = [
+    { name: "Locked", color: "bg-gray-200 text-gray-500", bg: "bg-[#A9C0E0]/10", border: "border-gray-200" },
+    { name: "Bronze", color: "from-amber-600 to-amber-800 text-white", bg: "bg-amber-50/40", border: "border-amber-200/60" },
+    { name: "Silver", color: "from-slate-400 to-slate-500 text-white", bg: "bg-slate-50/40", border: "border-slate-200/60" },
+    { name: "Gold", color: "from-yellow-400 to-amber-500 text-royal", bg: "bg-amber-50/40", border: "border-yellow-200/60" },
+    { name: "Platinum", color: "from-teal-400 to-cyan-500 text-white", bg: "bg-teal-50/40", border: "border-teal-200/60" },
+    { name: "Diamond", color: "from-blue-400 to-indigo-500 text-white animate-pulse", bg: "bg-blue-50/40", border: "border-blue-200/60" }
+  ];
 
   const handleOpenEdit = () => {
     setEditName(studentIdentity?.name || "Alex");
@@ -214,48 +234,67 @@ export const ProfileTab: React.FC = () => {
           Achievements Showcase
         </h3>
 
-        <div className="space-y-3">
-          {badgeDefinitions.map((badge) => {
-            const Icon = badge.icon;
-            const isUnlocked = unlockedSet.has(badge.id);
+        <div className="space-y-4">
+          {progressiveTracks.map((track) => {
+            const Icon = track.icon;
+            const currentLevel = getUnlockedLevel(track.id);
+            const tierInfo = tiers[currentLevel];
+            
+            const isMaxLevel = currentLevel === 5;
+            const prevValue = currentLevel === 0 ? 0 : track.levels[currentLevel - 1];
+            const nextTarget = isMaxLevel ? track.levels[4] : track.levels[currentLevel];
+            
+            const pct = isMaxLevel 
+              ? 100 
+              : Math.min(100, Math.max(0, ((track.currentValue - prevValue) / (nextTarget - prevValue)) * 100));
 
             return (
               <div 
-                key={badge.id}
-                className={`neumorphic-card rounded-2xl p-4 flex items-center justify-between border border-white transition-opacity duration-300 ${
-                  isUnlocked ? "opacity-100" : "opacity-60 bg-powder/5"
-                }`}
+                key={track.id}
+                className={`neumorphic-card rounded-3xl p-5 border flex flex-col space-y-3.5 transition-all duration-300 ${tierInfo.bg} ${tierInfo.border}`}
               >
-                <div className="flex items-center space-x-3.5">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white shadow-md transition-all ${
-                    isUnlocked 
-                      ? `bg-gradient-to-tr ${badge.color}` 
-                      : "bg-[#A9C0E0]/20 text-powder/50"
-                  }`}>
-                    <Icon className="w-5.5 h-5.5" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3.5">
+                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-md transition-all ${
+                      currentLevel > 0 
+                        ? `bg-gradient-to-tr ${track.color}` 
+                        : "bg-[#A9C0E0]/20 text-powder/50"
+                    }`}>
+                      <Icon className="w-5.5 h-5.5" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-xs font-black text-royal">
+                        {track.title}
+                      </p>
+                      <p className="text-[10px] text-royal/60 font-medium text-left">
+                        Current: <strong className="text-royal">{track.currentValue}</strong> {track.metric}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-bold text-royal flex items-center gap-1.5">
-                      <span>{badge.title}</span>
-                      {!isUnlocked && (
-                        <span className="text-[8px] uppercase tracking-widest text-powder font-mono border border-powder/20 px-1.5 py-0.5 rounded-md">
-                          Locked
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[10px] text-royal/70 leading-normal max-w-xs">{badge.desc}</p>
-                  </div>
+
+                  {/* Level Tag badge */}
+                  <span className={`text-[9px] font-mono font-black uppercase tracking-wider px-3 py-1 rounded-full bg-gradient-to-tr ${tierInfo.color}`}>
+                    {tierInfo.name}
+                  </span>
                 </div>
 
-                {isUnlocked ? (
-                  <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-white">
-                    <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                {/* Progress bar to next tier level */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[9px] font-mono font-bold text-powder">
+                    <span>
+                      {isMaxLevel ? `Max Level Reached` : `Next Tier: ${tiers[currentLevel + 1].name}`}
+                    </span>
+                    <span>
+                      {isMaxLevel ? `${track.currentValue} total` : `${track.currentValue} / ${nextTarget}`}
+                    </span>
                   </div>
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-[#A9C0E0]/20 flex items-center justify-center text-powder">
-                    <Lock className="w-3.5 h-3.5" />
+                  <div className="w-full bg-[#A9C0E0]/20 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 bg-gradient-to-r ${track.color}`}
+                      style={{ width: `${pct}%` }}
+                    />
                   </div>
-                )}
+                </div>
               </div>
             );
           })}
@@ -264,7 +303,7 @@ export const ProfileTab: React.FC = () => {
 
       {/* 5. Interactive Profile Edit Sliding Modal Overlay */}
       {isEditing && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-t-[32px] p-6 shadow-2xl border-t border-[#A9C0E0]/20 space-y-5 animate-slideUp max-h-[90vh] overflow-y-auto no-scrollbar">
             
             {/* Modal Header */}

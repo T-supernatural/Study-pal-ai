@@ -440,6 +440,7 @@ export const UploadTab: React.FC = () => {
         3. Do NOT hallucinate new core educational facts that deviate from or contradict the user's uploaded material. However, expand abbreviations, define terms clearly, and present the concepts with rich academic detail to make them fully learnable.
         4. You must output EXACTLY a single JSON object. Ensure every property in the requested schema is fully populated with deep, premium, non-trivial content.
         5. The generated "title" MUST be highly concise, elegant, and display-friendly—strictly no more than 3-4 words (maximum 25 characters) to prevent text overflow on mobile screens (e.g., "Mitosis & Cell Division", "Basic Derivatives"). Do NOT use long, wordy titles.
+        6. The generated "subtitle" MUST be a detailed, descriptive companion subtitle of 4-10 words detailing the sub-concepts or practical focus (e.g., "Analyzing the stages of eukaryotic cell division", "Power, product, quotient, and chain integration rules").
       `;
 
       // Prompt to request full structured outputs
@@ -453,6 +454,7 @@ export const UploadTab: React.FC = () => {
         Synthesize a premium, fully-realized Study Pack based on this material.
         Make sure the:
         - "title" is extremely concise, elegant, display-friendly, and strictly under 25 characters (max 3-4 words).
+        - "subtitle" is a detailed, descriptive companion subtitle summarizing the specific focus of the study material in 4-10 words.
         - "category" matches standard subjects (e.g., Biology, Chemistry, Physics, Mathematics, History, Literature, Computer Science, Economics).
         - "summary" is a tight, elegant summary of 100 to 150 words.
         - "detailedSummary" is a comprehensive, structured lesson summary with markdown headers, bold terms, and key points.
@@ -469,6 +471,7 @@ export const UploadTab: React.FC = () => {
         type: "OBJECT",
         properties: {
           title: { type: "STRING" },
+          subtitle: { type: "STRING" },
           category: { type: "STRING" },
           topic: { type: "STRING" },
           cleanNotes: { type: "STRING" },
@@ -519,7 +522,7 @@ export const UploadTab: React.FC = () => {
           difficultyLevel: { type: "STRING" }
         },
         required: [
-          "title", "category", "topic", "cleanNotes", "summary", "detailedSummary", 
+          "title", "subtitle", "category", "topic", "cleanNotes", "summary", "detailedSummary", 
           "keyConcepts", "importantDefinitions", "keywords", "revisionTips", "examTips", 
           "flashcards", "quiz", "practiceQuestions", "estimatedReadingTime", 
           "estimatedListeningTime", "difficultyLevel"
@@ -584,6 +587,7 @@ export const UploadTab: React.FC = () => {
       const compiledNote: StudyNote = {
         id: studyPackId,
         title: generatedPack.title || "Untitled Lesson",
+        subtitle: generatedPack.subtitle || "",
         category: generatedPack.category || "General",
         topic: generatedPack.topic || "",
         textContent: finalRawText,
@@ -698,6 +702,7 @@ export const UploadTab: React.FC = () => {
         Your task is to take extracted text and restructure it into an elegant, comprehensive, and highly engaging Study Pack.
         Ensure every property in the requested schema is fully populated with deep, premium, non-trivial content.
         The generated "title" MUST be highly concise, elegant, and display-friendly—strictly no more than 3-4 words (maximum 25 characters) to prevent text overflow on mobile screens (e.g., "Mitosis & Cell Division", "Basic Derivatives"). Do NOT use long, wordy titles.
+        The generated "subtitle" MUST be a detailed, descriptive companion subtitle of 4-10 words detailing the sub-concepts or practical focus (e.g., "Analyzing the stages of eukaryotic cell division", "Power, product, quotient, and chain integration rules").
       `;
 
       const prompt = `
@@ -710,6 +715,7 @@ export const UploadTab: React.FC = () => {
         Synthesize a premium, fully-realized Study Pack based on this material.
         Make sure the:
         - "title" is extremely concise, elegant, display-friendly, and strictly under 25 characters (max 3-4 words).
+        - "subtitle" is a detailed, descriptive companion subtitle summarizing the specific focus of the study material in 4-10 words.
         - "category" matches standard subjects (Biology, Mathematics, or History).
         - "summary" is a tight, elegant summary of 100 to 150 words.
         - "detailedSummary" is a comprehensive, structured lesson summary with markdown headers, bold terms, and key points.
@@ -725,6 +731,7 @@ export const UploadTab: React.FC = () => {
         type: "OBJECT",
         properties: {
           title: { type: "STRING" },
+          subtitle: { type: "STRING" },
           category: { type: "STRING" },
           topic: { type: "STRING" },
           cleanNotes: { type: "STRING" },
@@ -775,7 +782,7 @@ export const UploadTab: React.FC = () => {
           difficultyLevel: { type: "STRING" }
         },
         required: [
-          "title", "category", "topic", "cleanNotes", "summary", "detailedSummary", 
+          "title", "subtitle", "category", "topic", "cleanNotes", "summary", "detailedSummary", 
           "keyConcepts", "importantDefinitions", "keywords", "revisionTips", "examTips", 
           "flashcards", "quiz", "practiceQuestions", "estimatedReadingTime", 
           "estimatedListeningTime", "difficultyLevel"
@@ -829,6 +836,7 @@ export const UploadTab: React.FC = () => {
       const compiledNote: StudyNote = {
         id: studyPackId,
         title: generatedPack.title || "Sample Study Pack",
+        subtitle: generatedPack.subtitle || "",
         category: generatedPack.category || "General",
         topic: generatedPack.topic || "",
         textContent: presetText,

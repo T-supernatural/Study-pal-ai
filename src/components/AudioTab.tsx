@@ -223,10 +223,15 @@ export const AudioTab: React.FC = () => {
               <span className="text-[9px] font-mono font-bold bg-blue-50 text-blue-600 border border-blue-100 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 {selectedNote.category}
               </span>
-              <h3 className="font-display text-md font-extrabold text-royal leading-tight pt-1 truncate">
+              <h3 className="font-display text-sm sm:text-md font-extrabold text-royal leading-tight pt-1 truncate" title={selectedNote.title}>
                 {selectedNote.title}
               </h3>
-              <p className="text-[10px] text-powder font-semibold uppercase tracking-wider font-mono">
+              {selectedNote.subtitle && (
+                <p className="text-[10px] text-royal/70 font-medium line-clamp-1 px-4 leading-normal" title={selectedNote.subtitle}>
+                  {selectedNote.subtitle}
+                </p>
+              )}
+              <p className="text-[9px] text-powder font-semibold uppercase tracking-wider font-mono pt-0.5">
                 {currentSectionIndex + 1} of {sections.length} sentences
               </p>
             </div>
@@ -344,11 +349,20 @@ export const AudioTab: React.FC = () => {
                       }`}>
                         <Headphones className="w-4.5 h-4.5" />
                       </div>
-                      <div className="space-y-0.5">
+                      <div className="space-y-1 min-w-0 flex-1">
                         <p className={`text-xs font-bold leading-tight truncate ${isSelected ? "text-royal" : "text-royal/80"}`}>
                           {note.title}
                         </p>
-                        <span className="text-[10px] text-powder font-medium">{note.category}</span>
+                        <div className="flex items-center space-x-1.5 min-w-0">
+                          <span className="text-[9px] font-bold bg-royal/5 text-royal px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                            {note.category}
+                          </span>
+                          {note.subtitle && (
+                            <span className="text-[10px] text-powder font-medium truncate" title={note.subtitle}>
+                              • {note.subtitle}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     {isSelected && isPlaying && (

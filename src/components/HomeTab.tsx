@@ -179,14 +179,19 @@ export const HomeTab: React.FC = () => {
               onClick={() => handleNoteClick(note)}
               className="neumorphic-card rounded-2xl p-4 flex items-center justify-between hover:translate-x-1 hover:border-royal/20 transition-all duration-300 cursor-pointer group border border-white"
             >
-              <div className="flex items-center space-x-3.5 max-w-[80%]">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#A9C0E0]/30 to-royal/10 flex items-center justify-center shadow-inner text-royal font-display font-black text-sm">
+              <div className="flex items-center space-x-3.5 min-w-0 flex-1 pr-2">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#A9C0E0]/30 to-royal/10 flex items-center justify-center shadow-inner text-royal font-display font-black text-sm shrink-0">
                   {note.category.charAt(0)}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 min-w-0 flex-1">
                   <h4 className="text-xs font-bold text-royal group-hover:text-blue-700 transition-colors truncate">
                     {note.title}
                   </h4>
+                  {note.subtitle && (
+                    <p className="text-[10px] text-royal/70 font-medium line-clamp-1">
+                      {note.subtitle}
+                    </p>
+                  )}
                   <div className="flex items-center space-x-2 text-[10px] text-powder font-medium">
                     <span>{note.category}</span>
                     <span>•</span>
@@ -226,7 +231,7 @@ export const HomeTab: React.FC = () => {
 
       {/* 5. Notifications Drawer Modal Overlay */}
       {isNotificationsOpen && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+        <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-t-[32px] p-6 shadow-2xl border-t border-[#A9C0E0]/20 space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar animate-slideUp">
             
             {/* Drawer Header */}

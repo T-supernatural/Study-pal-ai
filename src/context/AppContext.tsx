@@ -272,6 +272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             {
               id: "note-1",
               title: "Photosynthesis Notes",
+              subtitle: "Solar photon capture & sugar synthesis in chloroplasts",
               category: "Biology",
               createdAt: "2026-05-12T08:45:00Z",
               studyProgress: 50,
@@ -311,6 +312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             {
               id: "note-2",
               title: "Quadratic Equations",
+              subtitle: "Solving second-degree polynomials using discriminant formulas",
               category: "Mathematics",
               createdAt: "2026-05-11T12:30:00Z",
               studyProgress: 100,
@@ -341,6 +343,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             {
               id: "note-3",
               title: "The Legislative Branch",
+              subtitle: "Structure and responsibilities of the US bicameral Congress",
               category: "Civic Education",
               createdAt: "2026-05-10T14:15:00Z",
               studyProgress: 38,

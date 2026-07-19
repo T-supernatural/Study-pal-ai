@@ -386,7 +386,7 @@ StudyPal AI:
     <>
       {/* Deletion Confirmation Modal Overlay */}
       {deleteCandidateId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
           <div className="w-full max-w-[280px] bg-white rounded-3xl p-5 shadow-2xl border border-powder/20 space-y-4 animate-scaleIn">
             <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 mx-auto">
               <AlertCircle className="w-5 h-5" />
@@ -424,7 +424,7 @@ StudyPal AI:
 
       {/* Floating Undo Banner Toast */}
       {lastDeletedNote && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-zinc-900/95 backdrop-blur-sm border border-zinc-800 text-white rounded-2xl py-3 px-4 shadow-2xl flex items-center justify-between">
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-zinc-900/95 backdrop-blur-sm border border-zinc-800 text-white rounded-2xl py-3 px-4 shadow-2xl flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-red-400">
               <Trash2 className="w-4 h-4" />
@@ -578,9 +578,16 @@ StudyPal AI:
             <ChevronLeft className="w-5 h-5 stroke-[2.5]" />
           </button>
           
-          <h2 className="font-display text-md font-bold text-royal max-w-[60%] truncate">
-            {activeNote.title}
-          </h2>
+          <div className="flex-1 text-center px-4 max-w-[65%]">
+            <h2 className="font-display text-xs sm:text-sm font-extrabold text-royal truncate" title={activeNote.title}>
+              {activeNote.title}
+            </h2>
+            {activeNote.subtitle && (
+              <p className="text-[10px] text-powder font-semibold leading-tight line-clamp-1 mt-0.5" title={activeNote.subtitle}>
+                {activeNote.subtitle}
+              </p>
+            )}
+          </div>
 
           <button 
             onClick={(e) => {
@@ -1559,9 +1566,15 @@ StudyPal AI:
               <h3 className="text-xs font-bold text-royal truncate">
                 {note.title}
               </h3>
-              <p className="text-[10px] text-royal/60 line-clamp-1">
-                {note.textContent}
-              </p>
+              {note.subtitle ? (
+                <p className="text-[10px] text-royal/70 font-medium line-clamp-1">
+                  {note.subtitle}
+                </p>
+              ) : (
+                <p className="text-[10px] text-royal/60 line-clamp-1">
+                  {note.textContent}
+                </p>
+              )}
               {/* Progress percentage */}
               <div className="flex items-center space-x-2 w-32 pt-1">
                 <div className="flex-1 bg-powder/20 h-1 rounded-full overflow-hidden">

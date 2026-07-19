@@ -17,6 +17,7 @@ export interface QuizQuestion {
 export interface StudyNote {
   id: string;
   title: string;
+  subtitle?: string;
   category: string;
   topic?: string;
   originalImage?: string; // base64 representation of a single image

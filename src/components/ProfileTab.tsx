@@ -303,7 +303,7 @@ export const ProfileTab: React.FC = () => {
 
       {/* 5. Interactive Profile Edit Sliding Modal Overlay */}
       {isEditing && (
-        <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+        <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
           <div className="w-full max-w-md bg-white rounded-t-[32px] p-6 shadow-2xl border-t border-[#A9C0E0]/20 space-y-5 animate-slideUp max-h-[90vh] overflow-y-auto no-scrollbar">
             
             {/* Modal Header */}

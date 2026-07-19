@@ -15,7 +15,7 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-2 pointer-events-none">
+    <div className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-6 pt-2 pointer-events-none">
       <div className="max-w-md mx-auto liquid-glass rounded-full px-6 py-3 shadow-xl flex items-center justify-between pointer-events-auto border border-white/50 relative">
         {navItems.map((item) => {
           const IconComponent = item.icon;

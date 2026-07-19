@@ -150,7 +150,7 @@ function AppContent() {
         </header>
 
         {/* MAIN VIEW CONTENT CONTAINER */}
-        <main className="flex-1 overflow-y-auto px-6 pt-5 pb-32 no-scrollbar relative z-10">
+        <main className="flex-1 overflow-y-auto px-6 pt-5 pb-32 no-scrollbar relative">
           {renderActiveTab()}
         </main>
 
@@ -164,7 +164,7 @@ function AppContent() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-50 bg-[#0E2F76]/60 backdrop-blur-md flex items-center justify-center p-6"
+              className="absolute inset-0 z-[100] bg-[#0E2F76]/60 backdrop-blur-md flex items-center justify-center p-6"
             >
               <motion.div 
                 initial={{ scale: 0.9, y: 50, opacity: 0 }}

@@ -19,6 +19,15 @@
     <!-- Primary Font Preloads -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- PDF.js library for client-side PDF rendering & page extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+      // Point PDF.js to correct CDN worker
+      if (window.pdfjsLib) {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+      }
+    </script>
   </head>
   <body class="bg-[#F4FEFF] text-[#0E2F76] antialiased select-none overflow-x-hidden">
     <div id="root"></div>

@@ -9,6 +9,8 @@ interface AppContextProps {
   themeMode: ThemeMode;
   isLoading: boolean;
   activeNote: StudyNote | null;
+  recentlyUnlockedBadge: string | null;
+  clearRecentBadge: () => void;
   addNote: (note: StudyNote) => void;
   updateNote: (note: StudyNote) => void;
   deleteNote: (id: string) => void;
@@ -19,6 +21,9 @@ interface AppContextProps {
   completeLesson: () => void;
   updateQuizAnswers: (noteId: string, questions: QuizQuestion[]) => void;
   toggleFlashcardMemorized: (noteId: string, cardId: string) => void;
+  toggleConceptTicked: (noteId: string, concept: string) => void;
+  markAudioListened: (noteId: string) => void;
+  updateQuizHighScore: (noteId: string, scoreOutOf100: number) => void;
 }
 
 const defaultStats: LearningStats = {
@@ -27,6 +32,7 @@ const defaultStats: LearningStats = {
   completedLessonsToday: 4,
   totalStudyMinutes: 120,
   lessonsHistoryCount: 3,
+  unlockedBadges: ["streak-master"],
 };
 
 const AppContext = createContext<AppContextProps | undefined>(undefined);
@@ -38,6 +44,76 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [themeMode, setThemeMode] = useState<ThemeMode>("light");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeNote, setActiveNote] = useState<StudyNote | null>(null);
+  const [recentlyUnlockedBadge, setRecentlyUnlockedBadge] = useState<string | null>(null);
+
+  const clearRecentBadge = () => setRecentlyUnlockedBadge(null);
+
+  const calculateMasteryProgress = (note: StudyNote): number => {
+    const conceptWeight = 25;
+    const audioWeight = 25;
+    const flashcardWeight = 25;
+    const quizWeight = 25;
+
+    let conceptProgress = 0;
+    if (note.keyConcepts && note.keyConcepts.length > 0) {
+      const tickedCount = note.tickedConcepts?.length || 0;
+      conceptProgress = (tickedCount / note.keyConcepts.length) * conceptWeight;
+    } else {
+      conceptProgress = (note.tickedConcepts && note.tickedConcepts.length > 0) ? conceptWeight : 0;
+    }
+
+    const audioProgress = note.audioListened ? audioWeight : 0;
+
+    let flashcardProgress = 0;
+    if (note.flashcards && note.flashcards.length > 0) {
+      const memorizedCount = note.flashcards.filter((fc) => fc.memorized).length;
+      flashcardProgress = (memorizedCount / note.flashcards.length) * flashcardWeight;
+    } else {
+      flashcardProgress = flashcardWeight;
+    }
+
+    const quizProgress = ((note.quizHighScore || 0) / 100) * quizWeight;
+
+    const total = Math.round(conceptProgress + audioProgress + flashcardProgress + quizProgress);
+    return Math.min(100, Math.max(0, total));
+  };
+
+  const handleBadgeCheck = async (updatedStats: LearningStats, recentQuizScore?: number): Promise<LearningStats> => {
+    const currentUnlocked = updatedStats.unlockedBadges || [];
+    const newUnlocked = [...currentUnlocked];
+    let newlyUnlockedId: string | null = null;
+
+    // Badge 1: Paladin of Focus (totalStudyMinutes >= 150)
+    if (updatedStats.totalStudyMinutes >= 150 && !newUnlocked.includes("paladin-focus")) {
+      newUnlocked.push("paladin-focus");
+      newlyUnlockedId = "paladin-focus";
+    }
+
+    // Badge 2: Perfect 10 (completed quiz with 100)
+    if (recentQuizScore === 100 && !newUnlocked.includes("perfect-10")) {
+      newUnlocked.push("perfect-10");
+      newlyUnlockedId = "perfect-10";
+    }
+
+    // Badge 3: Curator of Wisdom (lessonsHistoryCount >= 4)
+    if (updatedStats.lessonsHistoryCount >= 4 && !newUnlocked.includes("curator-wisdom")) {
+      newUnlocked.push("curator-wisdom");
+      newlyUnlockedId = "curator-wisdom";
+    }
+
+    // Badge 4: Consistency Champ (streakDays >= 5)
+    if (updatedStats.streakDays >= 5 && !newUnlocked.includes("consistency-champ")) {
+      newUnlocked.push("consistency-champ");
+      newlyUnlockedId = "consistency-champ";
+    }
+
+    if (newlyUnlockedId) {
+      setRecentlyUnlockedBadge(newlyUnlockedId);
+      const finalStats = { ...updatedStats, unlockedBadges: newUnlocked };
+      return finalStats;
+    }
+    return updatedStats;
+  };
 
   // 1. Initial Load from IndexedDB
   useEffect(() => {
@@ -54,9 +130,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               title: "Photosynthesis Notes",
               category: "Biology",
               createdAt: "2026-05-12T08:45:00Z",
-              studyProgress: 75,
+              studyProgress: 50,
               textContent: "Photosynthesis is the process used by plants, algae, and some bacteria to convert light energy into chemical energy. It occurs in the chloroplasts of plant cells and involves two main stages: the light-dependent reactions and the Calvin cycle.",
               summary: "Photosynthesis is the key process transforming light energy to chemical energy within chloroplasts. It is divided into: 1. Light-dependent reactions (capturing light inside thylakoids) and 2. The Calvin cycle (synthesizing sugars in the stroma).",
+              keyConcepts: [
+                "Chloroplast anatomy (Thylakoid and Stroma)",
+                "Light-dependent reactions capture solar photons",
+                "Calvin cycle fixes Carbon Dioxide into glucose",
+                "Chlorophyll pigment absorption spectra"
+              ],
+              tickedConcepts: ["Chloroplast anatomy (Thylakoid and Stroma)"],
+              audioListened: false,
+              quizHighScore: 50,
               flashcards: [
                 { id: "fc-1-1", question: "Where does photosynthesis occur in plant cells?", answer: "In the chloroplasts.", memorized: true },
                 { id: "fc-1-2", question: "What are the two main stages of photosynthesis?", answer: "Light-dependent reactions and the Calvin cycle.", memorized: false },
@@ -87,6 +172,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               studyProgress: 100,
               textContent: "A quadratic equation is a second-degree polynomial equation of the form ax^2 + bx + c = 0. Its roots can be solved using the quadratic formula: x = (-b ± √(b^2 - 4ac)) / 2a. The discriminant (b^2 - 4ac) determines the nature of the roots.",
               summary: "Quadratic equations are second-degree equations (ax² + bx + c = 0) solvable by factoring, completing the square, or using the Quadratic Formula. The discriminant determines real vs. complex roots.",
+              keyConcepts: [
+                "Standard Form (ax^2 + bx + c = 0)",
+                "The Quadratic Formula application",
+                "Role of Discriminant (b^2 - 4ac)"
+              ],
+              tickedConcepts: ["Standard Form (ax^2 + bx + c = 0)", "The Quadratic Formula application", "Role of Discriminant (b^2 - 4ac)"],
+              audioListened: true,
+              quizHighScore: 100,
               flashcards: [
                 { id: "fc-2-1", question: "What is the standard form of a quadratic equation?", answer: "ax² + bx + c = 0", memorized: true },
                 { id: "fc-2-2", question: "What is the formula for the discriminant?", answer: "D = b² - 4ac", memorized: true },
@@ -106,9 +199,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               title: "The Legislative Branch",
               category: "Civic Education",
               createdAt: "2026-05-10T14:15:00Z",
-              studyProgress: 50,
+              studyProgress: 38,
               textContent: "The legislative branch is responsible for making laws. In the United States, it is represented by Congress, a bicameral legislature consisting of the Senate and the House of Representatives. Each state has two Senators, while House representatives are based on population.",
               summary: "The legislative branch drafts, debates, and passes laws. In the US system, Congress is bicameral, dividing authority between the Senate (equal state representation) and House of Representatives (proportional representation).",
+              keyConcepts: [
+                "Law-making responsibility",
+                "Bicameral structure (Senate vs. House)",
+                "Proportional vs. Equal representation"
+              ],
+              tickedConcepts: ["Law-making responsibility"],
+              audioListened: false,
+              quizHighScore: 0,
               flashcards: [
                 { id: "fc-3-1", question: "What body makes up the US legislative branch?", answer: "Congress (Senate and House of Representatives).", memorized: false },
                 { id: "fc-3-2", question: "How many Senators does each state have?", answer: "Two.", memorized: true },
@@ -149,6 +250,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const updated = [note, ...notes];
     setNotes(updated);
     await saveStudyNotesDB(updated);
+
+    const updatedStats = {
+      ...stats,
+      lessonsHistoryCount: stats.lessonsHistoryCount + 1,
+    };
+    const finalStats = await handleBadgeCheck(updatedStats);
+    setStats(finalStats);
+    await saveLearningStatsDB(finalStats);
   };
 
   const updateNote = async (note: StudyNote) => {
@@ -174,8 +283,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...stats,
       totalStudyMinutes: stats.totalStudyMinutes + mins,
     };
-    setStats(updatedStats);
-    await saveLearningStatsDB(updatedStats);
+    const finalStats = await handleBadgeCheck(updatedStats);
+    setStats(finalStats);
+    await saveLearningStatsDB(finalStats);
   };
 
   const completeLesson = async () => {
@@ -183,8 +293,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...stats,
       completedLessonsToday: stats.completedLessonsToday + 1,
     };
-    setStats(updatedStats);
-    await saveLearningStatsDB(updatedStats);
+    const finalStats = await handleBadgeCheck(updatedStats);
+    setStats(finalStats);
+    await saveLearningStatsDB(finalStats);
   };
 
   const updateQuizAnswers = async (noteId: string, questions: QuizQuestion[]) => {
@@ -192,17 +303,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!note) return;
 
     // Calculate score
-    const answeredCount = questions.filter(q => q.selectedAnswer).length;
-    const correctCount = questions.filter(q => q.selectedAnswer === q.correctAnswer).length;
-    const newProgress = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+    const correctCount = questions.filter((q) => q.selectedAnswer === q.correctAnswer).length;
+    const scorePct = questions.length > 0 ? Math.round((correctCount / questions.length) * 100) : 0;
+    const newHighScore = Math.max(note.quizHighScore || 0, scorePct);
 
-    const updatedNote: StudyNote = {
+    const intermediateNote: StudyNote = {
       ...note,
       quiz: questions,
-      studyProgress: Math.max(note.studyProgress, newProgress),
+      quizHighScore: newHighScore,
+    };
+
+    const finalProgress = calculateMasteryProgress(intermediateNote);
+    const updatedNote: StudyNote = {
+      ...intermediateNote,
+      studyProgress: finalProgress,
     };
 
     await updateNote(updatedNote);
+
+    // If perfect score, trigger check for Badge Perfect 10
+    if (scorePct === 100) {
+      const updatedStats = await handleBadgeCheck(stats, 100);
+      setStats(updatedStats);
+      await saveLearningStatsDB(updatedStats);
+    }
   };
 
   const toggleFlashcardMemorized = async (noteId: string, cardId: string) => {
@@ -213,12 +337,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fc.id === cardId ? { ...fc, memorized: !fc.memorized } : fc
     );
 
-    const updatedNote: StudyNote = {
+    const intermediateNote: StudyNote = {
       ...note,
       flashcards: updatedCards,
     };
 
+    const finalProgress = calculateMasteryProgress(intermediateNote);
+    const updatedNote: StudyNote = {
+      ...intermediateNote,
+      studyProgress: finalProgress,
+    };
+
     await updateNote(updatedNote);
+  };
+
+  const toggleConceptTicked = async (noteId: string, concept: string) => {
+    const note = notes.find((n) => n.id === noteId);
+    if (!note) return;
+
+    const currentTicked = note.tickedConcepts || [];
+    const updatedTicked = currentTicked.includes(concept)
+      ? currentTicked.filter((c) => c !== concept)
+      : [...currentTicked, concept];
+
+    const intermediateNote: StudyNote = {
+      ...note,
+      tickedConcepts: updatedTicked,
+    };
+
+    const finalProgress = calculateMasteryProgress(intermediateNote);
+    const updatedNote: StudyNote = {
+      ...intermediateNote,
+      studyProgress: finalProgress,
+    };
+
+    await updateNote(updatedNote);
+  };
+
+  const markAudioListened = async (noteId: string) => {
+    const note = notes.find((n) => n.id === noteId);
+    if (!note) return;
+
+    const intermediateNote: StudyNote = {
+      ...note,
+      audioListened: true,
+    };
+
+    const finalProgress = calculateMasteryProgress(intermediateNote);
+    const updatedNote: StudyNote = {
+      ...intermediateNote,
+      studyProgress: finalProgress,
+    };
+
+    await updateNote(updatedNote);
+  };
+
+  const updateQuizHighScore = async (noteId: string, scoreOutOf100: number) => {
+    const note = notes.find((n) => n.id === noteId);
+    if (!note) return;
+
+    const currentHigh = note.quizHighScore || 0;
+    const newHighScore = Math.max(currentHigh, scoreOutOf100);
+
+    const intermediateNote: StudyNote = {
+      ...note,
+      quizHighScore: newHighScore,
+    };
+
+    const finalProgress = calculateMasteryProgress(intermediateNote);
+    const updatedNote: StudyNote = {
+      ...intermediateNote,
+      studyProgress: finalProgress,
+    };
+
+    await updateNote(updatedNote);
+
+    if (scoreOutOf100 === 100) {
+      const updatedStats = await handleBadgeCheck(stats, 100);
+      setStats(updatedStats);
+      await saveLearningStatsDB(updatedStats);
+    }
   };
 
   return (
@@ -230,6 +428,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         themeMode,
         isLoading,
         activeNote,
+        recentlyUnlockedBadge,
+        clearRecentBadge,
         addNote,
         updateNote,
         deleteNote,
@@ -240,6 +440,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         completeLesson,
         updateQuizAnswers,
         toggleFlashcardMemorized,
+        toggleConceptTicked,
+        markAudioListened,
+        updateQuizHighScore,
       }}
     >
       {children}

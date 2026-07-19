@@ -18,14 +18,32 @@ export interface StudyNote {
   id: string;
   title: string;
   category: string;
-  originalImage?: string; // base64 representation or file pointer
+  topic?: string;
+  originalImage?: string; // base64 representation of a single image
+  originalImages?: string[]; // support multiple images
+  pdfName?: string; // support PDF source
+  pdfPageCount?: number;
   textContent: string; // extracted text (OCR)
-  summary?: string; // AI generated summary
+  cleanNotes?: string; // AI cleaned/restructured notes
+  summary?: string; // AI generated short summary (100-150 words)
+  detailedSummary?: string; // AI generated detailed summary
+  keyConcepts?: string[]; // array of key concepts
+  importantDefinitions?: { term: string; definition: string }[]; // definitions
+  keywords?: string[]; // keywords list
+  revisionTips?: string[]; // revision tips
+  examTips?: string[]; // exam tips
+  practiceQuestions?: string[]; // open-ended practice questions
+  estimatedReadingTime?: number; // reading time in minutes
+  estimatedListeningTime?: number; // listening time in minutes
+  difficultyLevel?: "Beginner" | "Intermediate" | "Advanced";
   createdAt: string;
   studyProgress: number; // percentage completed (0 to 100)
   flashcards: Flashcard[];
   quiz: QuizQuestion[];
   audioUrl?: string; // Cache local audio file or link
+  tickedConcepts?: string[]; // track which core concepts have been checked off
+  audioListened?: boolean; // track if the student listened to the audio
+  quizHighScore?: number; // highest score on the quiz (out of 100)
 }
 
 export interface LearningStats {
@@ -35,6 +53,7 @@ export interface LearningStats {
   completedLessonsToday: number;
   totalStudyMinutes: number;
   lessonsHistoryCount: number; // Number of items processed
+  unlockedBadges?: string[]; // track unlocked achievement badges
 }
 
 export type ActiveTab = "home" | "library" | "upload" | "audio" | "profile";

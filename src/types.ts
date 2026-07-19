@@ -56,5 +56,22 @@ export interface LearningStats {
   unlockedBadges?: string[]; // track unlocked achievement badges
 }
 
+export interface StudentIdentity {
+  name: string;
+  preferredClass: string;
+  favoriteSubject: string;
+  dailyGoal: number; // daily lesson count goal
+  avatarId: string; // e.g. "student-1" to "student-6"
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: "streak" | "lesson" | "quiz" | "flashcard" | "achievement" | "goal" | "system";
+  createdAt: string;
+  read: boolean;
+}
+
 export type ActiveTab = "home" | "library" | "upload" | "audio" | "profile";
 export type ThemeMode = "light" | "glass" | "neumorphic";

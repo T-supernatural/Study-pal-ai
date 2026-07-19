@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { StudyNote, LearningStats, ActiveTab, ThemeMode, QuizQuestion } from "../types";
+import { StudyNote, LearningStats, ActiveTab, ThemeMode, QuizQuestion, StudentIdentity, NotificationItem } from "../types";
 import { loadStudyNotesDB, saveStudyNotesDB, loadLearningStatsDB, saveLearningStatsDB } from "../lib/indexedDb";
 
 interface AppContextProps {
@@ -24,12 +24,29 @@ interface AppContextProps {
   toggleConceptTicked: (noteId: string, concept: string) => void;
   markAudioListened: (noteId: string) => void;
   updateQuizHighScore: (noteId: string, scoreOutOf100: number) => void;
+  
+  // Student Identity & Onboarding
+  studentIdentity: StudentIdentity | null;
+  isOnboarded: boolean;
+  saveOnboardingIdentity: (identity: StudentIdentity) => void;
+  updateIdentity: (identity: Partial<StudentIdentity>) => void;
+  
+  // Undo deletion support
+  lastDeletedNote: StudyNote | null;
+  undoDeleteNote: () => void;
+  clearLastDeletedNote: () => void;
+
+  // Notification center
+  notifications: NotificationItem[];
+  addNotification: (title: string, message: string, type: NotificationItem["type"]) => void;
+  markNotificationRead: (id: string) => void;
+  clearAllNotifications: () => void;
 }
 
 const defaultStats: LearningStats = {
   streakDays: 4, // Initial mockup values for high quality layout
-  dailyGoalLessons: 6,
-  completedLessonsToday: 4,
+  dailyGoalLessons: 3,
+  completedLessonsToday: 2,
   totalStudyMinutes: 120,
   lessonsHistoryCount: 3,
   unlockedBadges: ["streak-master"],
@@ -46,7 +63,86 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeNote, setActiveNote] = useState<StudyNote | null>(null);
   const [recentlyUnlockedBadge, setRecentlyUnlockedBadge] = useState<string | null>(null);
 
+  // Undo support state
+  const [lastDeletedNote, setLastDeletedNote] = useState<StudyNote | null>(null);
+
+  // Onboarding & Identity state
+  const [studentIdentity, setStudentIdentity] = useState<StudentIdentity | null>(null);
+  const [isOnboarded, setIsOnboarded] = useState<boolean>(false);
+
+  // Notification Center state
+  const [notifications, setNotificationsState] = useState<NotificationItem[]>([]);
+
   const clearRecentBadge = () => setRecentlyUnlockedBadge(null);
+
+  // Fetch local identity and notifications on load
+  useEffect(() => {
+    // 1. Identity
+    const savedIdentity = localStorage.getItem("studypal_identity");
+    const onboardedFlag = localStorage.getItem("studypal_onboarded");
+    if (savedIdentity && onboardedFlag === "true") {
+      setStudentIdentity(JSON.parse(savedIdentity));
+      setIsOnboarded(true);
+    } else {
+      setIsOnboarded(false);
+    }
+
+    // 2. Notifications
+    const savedNotifications = localStorage.getItem("studypal_notifications");
+    if (savedNotifications) {
+      setNotificationsState(JSON.parse(savedNotifications));
+    } else {
+      // Seed starter high quality notifications
+      const starterNotifications: NotificationItem[] = [
+        {
+          id: "welcome-notif",
+          title: "Welcome to StudyPal AI! 🌟",
+          message: "We're thrilled to have you here. Ready to supercharge your study routine? Try uploading notes or a PDF to create your first dynamic Study Pack!",
+          type: "system",
+          createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10m ago
+          read: false,
+        },
+        {
+          id: "streak-notif",
+          title: "4-Day Study Streak Active 🔥",
+          message: "You have maintained an awesome 4-day study streak! Keep completing study packs to unlock the elite Consistency Champ badge.",
+          type: "streak",
+          createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2h ago
+          read: false,
+        }
+      ];
+      setNotificationsState(starterNotifications);
+      localStorage.setItem("studypal_notifications", JSON.stringify(starterNotifications));
+    }
+  }, []);
+
+  // Sync notifications to localStorage
+  const saveNotificationsToStorage = (updatedNotifs: NotificationItem[]) => {
+    setNotificationsState(updatedNotifs);
+    localStorage.setItem("studypal_notifications", JSON.stringify(updatedNotifs));
+  };
+
+  // Helper to add local notification
+  const addNotification = (title: string, message: string, type: NotificationItem["type"]) => {
+    const newNotif: NotificationItem = {
+      id: `notif-${Date.now()}`,
+      title,
+      message,
+      type,
+      createdAt: new Date().toISOString(),
+      read: false,
+    };
+    saveNotificationsToStorage([newNotif, ...notifications]);
+  };
+
+  const markNotificationRead = (id: string) => {
+    const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+    saveNotificationsToStorage(updated);
+  };
+
+  const clearAllNotifications = () => {
+    saveNotificationsToStorage([]);
+  };
 
   const calculateMasteryProgress = (note: StudyNote): number => {
     const conceptWeight = 25;
@@ -109,6 +205,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (newlyUnlockedId) {
       setRecentlyUnlockedBadge(newlyUnlockedId);
+      
+      // Push Achievement Notification
+      const badgeNames: Record<string, string> = {
+        "paladin-focus": "Paladin of Focus 🛡️",
+        "perfect-10": "Perfect 10 🏆",
+        "curator-wisdom": "Curator of Wisdom 🧠",
+        "consistency-champ": "Consistency Champ 🔥",
+      };
+      addNotification(
+        `New Badge Unlocked: ${badgeNames[newlyUnlockedId] || "Milestone Master"}!`,
+        `Amazing job! You've unlocked a new achievement badge. Head over to your profile to display it!`,
+        "achievement"
+      );
+
       const finalStats = { ...updatedStats, unlockedBadges: newUnlocked };
       return finalStats;
     }
@@ -188,9 +298,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 {
                   id: "qz-2-1",
                   question: "If the discriminant (b² - 4ac) is negative, what is the nature of the roots?",
-                  options: ["Two real unequal roots", "One real repeated root", "Two complex conjugate roots", "No roots exist"],
+                  options: ["Two distinct real roots", "One real repeated root", "Two complex conjugate roots", "No roots exist at all"],
                   correctAnswer: "Two complex conjugate roots",
-                  explanation: "A negative discriminant results in taking the square root of a negative number, producing complex conjugate roots."
+                  explanation: "A negative discriminant means the square root part in the quadratic formula yields an imaginary number, giving two complex roots."
                 }
               ]
             },
@@ -245,6 +355,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     loadData();
   }, []);
 
+  // Onboarding action
+  const saveOnboardingIdentity = (identity: StudentIdentity) => {
+    setStudentIdentity(identity);
+    setIsOnboarded(true);
+    localStorage.setItem("studypal_identity", JSON.stringify(identity));
+    localStorage.setItem("studypal_onboarded", "true");
+
+    // Initialize fresh statistics adapted to their daily goal
+    const freshStats: LearningStats = {
+      streakDays: 1,
+      completedLessonsToday: 0,
+      dailyGoalLessons: identity.dailyGoal || 3,
+      lessonsHistoryCount: notes.length,
+      totalStudyMinutes: 0,
+      unlockedBadges: ["streak-master"], // default badge unlocked to encourage
+    };
+    setStats(freshStats);
+    saveLearningStatsDB(freshStats);
+
+    addNotification(
+      `Welcome ${identity.name}! 👋`,
+      `Your study profile is successfully set up for ${identity.favoriteSubject || "your subjects"}. Let's work together to reach your goal of ${identity.dailyGoal} lessons today!`,
+      "system"
+    );
+  };
+
+  const updateIdentity = (identity: Partial<StudentIdentity>) => {
+    if (!studentIdentity) return;
+    const updated = { ...studentIdentity, ...identity };
+    setStudentIdentity(updated);
+    localStorage.setItem("studypal_identity", JSON.stringify(updated));
+
+    // If dailyGoal changed, update stats as well
+    if (identity.dailyGoal !== undefined) {
+      const updatedStats = { ...stats, dailyGoalLessons: identity.dailyGoal };
+      setStats(updatedStats);
+      saveLearningStatsDB(updatedStats);
+    }
+
+    addNotification(
+      "Profile Updated ⚙️",
+      "Your learning preferences and avatar have been saved successfully.",
+      "system"
+    );
+  };
+
   // 2. State persistence auto-triggers on modification
   const addNote = async (note: StudyNote) => {
     const updated = [note, ...notes];
@@ -258,6 +414,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const finalStats = await handleBadgeCheck(updatedStats);
     setStats(finalStats);
     await saveLearningStatsDB(finalStats);
+
+    addNotification(
+      "Study Pack Created 📚",
+      `Successfully processed "${note.title}". Key summaries, ${note.flashcards.length} flashcards, and a practice quiz are ready!`,
+      "lesson"
+    );
   };
 
   const updateNote = async (note: StudyNote) => {
@@ -270,12 +432,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteNote = async (id: string) => {
+    const noteToDelete = notes.find(n => n.id === id);
+    if (!noteToDelete) return;
+
+    // Cache the deleted note for potential undo
+    setLastDeletedNote(noteToDelete);
+
     const updated = notes.filter((n) => n.id !== id);
     setNotes(updated);
     await saveStudyNotesDB(updated);
+
+    const updatedStats = {
+      ...stats,
+      lessonsHistoryCount: Math.max(0, stats.lessonsHistoryCount - 1),
+    };
+    setStats(updatedStats);
+    await saveLearningStatsDB(updatedStats);
+
     if (activeNote && activeNote.id === id) {
       setActiveNote(null);
     }
+
+    addNotification(
+      "Lesson Deleted 🗑️",
+      `The study pack "${noteToDelete.title}" was removed. You can undo this action from the Library view.`,
+      "system"
+    );
+  };
+
+  const undoDeleteNote = async () => {
+    if (!lastDeletedNote) return;
+
+    const updated = [lastDeletedNote, ...notes];
+    setNotes(updated);
+    await saveStudyNotesDB(updated);
+
+    const updatedStats = {
+      ...stats,
+      lessonsHistoryCount: stats.lessonsHistoryCount + 1,
+    };
+    setStats(updatedStats);
+    await saveLearningStatsDB(updatedStats);
+
+    addNotification(
+      "Deletion Undone ↩️",
+      `"${lastDeletedNote.title}" has been restored to your library.`,
+      "system"
+    );
+
+    setLastDeletedNote(null);
+  };
+
+  const clearLastDeletedNote = () => {
+    setLastDeletedNote(null);
   };
 
   const incrementStudyMinutes = async (mins: number) => {
@@ -286,16 +495,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const finalStats = await handleBadgeCheck(updatedStats);
     setStats(finalStats);
     await saveLearningStatsDB(finalStats);
+
+    // If milestone minutes reached, post a study reminder/milestone
+    if (finalStats.totalStudyMinutes % 60 === 0 || mins >= 10) {
+      addNotification(
+        "Study Effort Logged ⏱️",
+        `You just logged ${mins} minutes of focus! Your total active learning time is now ${finalStats.totalStudyMinutes} minutes. Keep up the high level work!`,
+        "streak"
+      );
+    }
   };
 
   const completeLesson = async () => {
+    const nextCompleted = stats.completedLessonsToday + 1;
     const updatedStats = {
       ...stats,
-      completedLessonsToday: stats.completedLessonsToday + 1,
+      completedLessonsToday: nextCompleted,
     };
     const finalStats = await handleBadgeCheck(updatedStats);
     setStats(finalStats);
     await saveLearningStatsDB(finalStats);
+
+    addNotification(
+      "Study Pack Mastered! 🌟",
+      `Great progress! You checked off all requirements for a study pack.`,
+      "lesson"
+    );
+
+    // Check if daily goals reached
+    if (nextCompleted === stats.dailyGoalLessons) {
+      addNotification(
+        "Daily Study Goal Met! 🎉",
+        `Phenomenal dedication! You successfully completed your daily goal of ${stats.dailyGoalLessons} study packs. Streaks increased!`,
+        "goal"
+      );
+    }
   };
 
   const updateQuizAnswers = async (noteId: string, questions: QuizQuestion[]) => {
@@ -321,6 +555,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     await updateNote(updatedNote);
 
+    addNotification(
+      `Practice Quiz Completed 📝`,
+      `You scored ${scorePct}% (${correctCount}/${questions.length} correct) on the "${note.title}" quiz.`,
+      "quiz"
+    );
+
     // If perfect score, trigger check for Badge Perfect 10
     if (scorePct === 100) {
       const updatedStats = await handleBadgeCheck(stats, 100);
@@ -332,6 +572,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleFlashcardMemorized = async (noteId: string, cardId: string) => {
     const note = notes.find((n) => n.id === noteId);
     if (!note) return;
+
+    const card = note.flashcards.find(c => c.id === cardId);
+    const wasMemorized = card ? card.memorized : false;
 
     const updatedCards = note.flashcards.map((fc) =>
       fc.id === cardId ? { ...fc, memorized: !fc.memorized } : fc
@@ -349,6 +592,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     await updateNote(updatedNote);
+
+    // If memorized, count progress and push notifications on complete set memorization
+    if (!wasMemorized) {
+      const allMemorized = updatedCards.every(c => c.memorized);
+      if (allMemorized) {
+        addNotification(
+          "Flashcards Mastered! 🧠",
+          `Amazing! You have memorized all ${updatedCards.length} flashcards inside "${note.title}".`,
+          "flashcard"
+        );
+      }
+    }
   };
 
   const toggleConceptTicked = async (noteId: string, concept: string) => {
@@ -356,7 +611,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!note) return;
 
     const currentTicked = note.tickedConcepts || [];
-    const updatedTicked = currentTicked.includes(concept)
+    const isTicked = currentTicked.includes(concept);
+    const updatedTicked = isTicked
       ? currentTicked.filter((c) => c !== concept)
       : [...currentTicked, concept];
 
@@ -372,6 +628,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     await updateNote(updatedNote);
+
+    if (!isTicked) {
+      // Concept checked notification
+      addNotification(
+        "Concept Learned Check! ✔️",
+        `You checked off: "${concept}" as understood! Keep checking to reach 100% mastery.`,
+        "lesson"
+      );
+    }
   };
 
   const markAudioListened = async (noteId: string) => {
@@ -390,6 +655,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     await updateNote(updatedNote);
+
+    addNotification(
+      "Audio Lecture Finished 🎧",
+      `You listened to the full synthesized study lecture for "${note.title}".`,
+      "lesson"
+    );
   };
 
   const updateQuizHighScore = async (noteId: string, scoreOutOf100: number) => {
@@ -443,6 +714,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleConceptTicked,
         markAudioListened,
         updateQuizHighScore,
+        
+        // Student Identity & Onboarding
+        studentIdentity,
+        isOnboarded,
+        saveOnboardingIdentity,
+        updateIdentity,
+
+        // Undo deletion
+        lastDeletedNote,
+        undoDeleteNote,
+        clearLastDeletedNote,
+
+        // Notification Center
+        notifications,
+        addNotification,
+        markNotificationRead,
+        clearAllNotifications,
       }}
     >
       {children}

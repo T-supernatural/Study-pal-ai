@@ -1,12 +1,27 @@
-import React from "react";
+import React, { useState } from "react";
 import { useApp } from "../context/AppContext";
 import { NeumorphicCard } from "./NeumorphicCard";
 import { StatRing } from "./StatRing";
-import { Bell, Upload, BookOpen, Sparkles, HelpCircle, ChevronRight, Play, Award, Zap } from "lucide-react";
-import { ActiveTab, StudyNote } from "../types";
+import { StudentAvatar } from "./StudentAvatar";
+import { 
+  Bell, Upload, BookOpen, Sparkles, HelpCircle, ChevronRight, 
+  Play, Award, Zap, X, Check, Target, Info, Trash2
+} from "lucide-react";
+import { ActiveTab, StudyNote, NotificationItem } from "../types";
 
 export const HomeTab: React.FC = () => {
-  const { notes, stats, setActiveTab, setActiveNote } = useApp();
+  const { 
+    notes, 
+    stats, 
+    setActiveTab, 
+    setActiveNote, 
+    studentIdentity, 
+    notifications, 
+    markNotificationRead, 
+    clearAllNotifications 
+  } = useApp();
+
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   const handleNoteClick = (note: StudyNote) => {
     setActiveNote(note);
@@ -29,32 +44,50 @@ export const HomeTab: React.FC = () => {
   };
 
   const currentPercentage = Math.round((stats.completedLessonsToday / stats.dailyGoalLessons) * 100);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const getNotificationIcon = (type: NotificationItem["type"]) => {
+    switch (type) {
+      case "streak": return <Zap className="w-4 h-4 text-orange-500 fill-orange-500/10" />;
+      case "goal": return <Target className="w-4 h-4 text-green-500" />;
+      case "lesson": return <BookOpen className="w-4 h-4 text-blue-500" />;
+      case "quiz": return <HelpCircle className="w-4 h-4 text-purple-500" />;
+      case "flashcard": return <Sparkles className="w-4 h-4 text-pink-500" />;
+      case "achievement": return <Award className="w-4 h-4 text-yellow-500 fill-yellow-500/10" />;
+      default: return <Info className="w-4 h-4 text-zinc-500" />;
+    }
+  };
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-6 pb-24 font-sans text-left">
       {/* 1. Header user bar */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-12 h-12 rounded-full border-2 border-[#A9C0E0] overflow-hidden shadow-sm">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop"
-              alt="User profile"
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+          <div className="w-12 h-12 rounded-full border-2 border-royal overflow-hidden shadow-md">
+            <StudentAvatar avatarId={studentIdentity?.avatarId || "avatar-1"} className="w-full h-full" />
           </div>
           <div>
-            <div className="text-xs text-powder font-mono uppercase tracking-wider flex items-center gap-1">
-              <span>Good Morning</span>
+            <div className="text-[10px] text-powder font-mono uppercase tracking-wider flex items-center gap-1">
+              <span>Good Study Session</span>
               <span className="animate-bounce">👋</span>
             </div>
-            <h1 className="font-display text-lg font-bold text-royal">John Doe</h1>
+            <h1 className="font-display text-base font-black text-royal">
+              {studentIdentity?.name || "Alex"}
+            </h1>
           </div>
         </div>
         
-        {/* Notification bell button */}
-        <button className="w-10 h-10 rounded-full neumorphic-card flex items-center justify-center text-royal hover:text-blue-600">
-          <Bell className="w-5 h-5" />
+        {/* Notification bell button with unread counts */}
+        <button 
+          onClick={() => setIsNotificationsOpen(true)}
+          className="relative w-10 h-10 rounded-full neumorphic-card border border-white flex items-center justify-center text-royal hover:text-blue-600 transition-all active:scale-95"
+        >
+          <Bell className="w-4.5 h-4.5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center text-[9px] font-black border-2 border-white animate-pulse">
+              {unreadCount}
+            </span>
+          )}
         </button>
       </div>
 
@@ -62,11 +95,11 @@ export const HomeTab: React.FC = () => {
       <NeumorphicCard className="relative overflow-hidden border border-white/40">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-2 max-w-[60%]">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 text-orange-600 text-[10px] font-bold font-mono uppercase tracking-wider">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-100 text-orange-600 text-[9px] font-mono font-bold uppercase tracking-wider">
               <Zap className="w-3.5 h-3.5 fill-orange-500 stroke-none" />
               <span>{stats.streakDays} Day Streak!</span>
             </div>
-            <h2 className="font-display text-md font-bold text-royal leading-snug">
+            <h2 className="font-display text-sm font-bold text-royal leading-snug">
               Keep going, you&apos;re doing great!
             </h2>
             <p className="text-xs text-royal/70">
@@ -76,7 +109,7 @@ export const HomeTab: React.FC = () => {
             <div className="w-full bg-[#A9C0E0]/30 h-2 rounded-full overflow-hidden mt-1">
               <div 
                 className="bg-gradient-to-r from-blue-500 to-royal h-full rounded-full transition-all duration-1000 ease-out"
-                style={{ width: `${currentPercentage}%` }}
+                style={{ width: `${Math.min(100, currentPercentage)}%` }}
               />
             </div>
           </div>
@@ -84,9 +117,9 @@ export const HomeTab: React.FC = () => {
           <div>
             <StatRing 
               percentage={currentPercentage} 
-              size={100} 
+              size={90} 
               strokeWidth={8}
-              label={`${currentPercentage}%`}
+              label={`${Math.min(100, currentPercentage)}%`}
               sublabel="goal"
             />
           </div>
@@ -95,7 +128,7 @@ export const HomeTab: React.FC = () => {
 
       {/* 3. Quick Actions Grid */}
       <div className="space-y-3">
-        <h3 className="font-display text-sm font-bold text-royal uppercase tracking-wider pl-1">
+        <h3 className="font-display text-xs font-bold text-royal uppercase tracking-wider pl-1">
           Quick Actions
         </h3>
         <div className="grid grid-cols-4 gap-3">
@@ -110,10 +143,10 @@ export const HomeTab: React.FC = () => {
               <button
                 key={action.id}
                 onClick={() => handleQuickAction(action.id)}
-                className="neumorphic-card rounded-2xl p-3 flex flex-col items-center justify-center text-center space-y-2 hover:scale-105 active:scale-95 transition-all duration-300 group"
+                className="neumorphic-card rounded-2xl p-3 flex flex-col items-center justify-center text-center space-y-2 hover:scale-105 active:scale-95 transition-all duration-300 group border border-white"
               >
                 <div className="w-10 h-10 rounded-xl bg-ice flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform duration-300">
-                  <Icon className={`w-5 h-5 ${action.color}`} />
+                  <Icon className={`w-4.5 h-4.5 ${action.color}`} />
                 </div>
                 <span className="text-[10px] font-bold text-royal/90 leading-tight">
                   {action.label}
@@ -124,10 +157,10 @@ export const HomeTab: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. Recent Lessons (All scanned notes) */}
+      {/* 4. Recent Lessons */}
       <div className="space-y-3">
         <div className="flex items-center justify-between pl-1">
-          <h3 className="font-display text-sm font-bold text-royal uppercase tracking-wider">
+          <h3 className="font-display text-xs font-bold text-royal uppercase tracking-wider">
             Recent Lessons
           </h3>
           <button 
@@ -144,10 +177,9 @@ export const HomeTab: React.FC = () => {
             <div
               key={note.id}
               onClick={() => handleNoteClick(note)}
-              className="neumorphic-card rounded-2xl p-4 flex items-center justify-between hover:translate-x-1 hover:border-royal/20 transition-all duration-300 cursor-pointer group"
+              className="neumorphic-card rounded-2xl p-4 flex items-center justify-between hover:translate-x-1 hover:border-royal/20 transition-all duration-300 cursor-pointer group border border-white"
             >
               <div className="flex items-center space-x-3.5 max-w-[80%]">
-                {/* Subject avatar thumb */}
                 <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#A9C0E0]/30 to-royal/10 flex items-center justify-center shadow-inner text-royal font-display font-black text-sm">
                   {note.category.charAt(0)}
                 </div>
@@ -179,7 +211,6 @@ export const HomeTab: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action arrow or play btn */}
               <div className="w-8 h-8 rounded-full neumorphic-card flex items-center justify-center text-royal bg-ice group-hover:scale-110 transition-transform duration-300">
                 <Play className="w-3.5 h-3.5 fill-royal stroke-none ml-0.5" />
               </div>
@@ -192,7 +223,100 @@ export const HomeTab: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* 5. Notifications Drawer Modal Overlay */}
+      {isNotificationsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-t-[32px] p-6 shadow-2xl border-t border-[#A9C0E0]/20 space-y-4 max-h-[85vh] overflow-y-auto no-scrollbar animate-slideUp">
+            
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between border-b border-[#A9C0E0]/15 pb-3">
+              <div className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-royal" />
+                <h3 className="font-display text-sm font-black text-royal">Activity & Milestones</h3>
+              </div>
+              <div className="flex items-center space-x-2">
+                {notifications.length > 0 && (
+                  <button
+                    onClick={clearAllNotifications}
+                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 text-[10px] font-bold flex items-center gap-1"
+                    title="Clear All"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Clear</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsNotificationsOpen(false)}
+                  className="p-1.5 rounded-full bg-powder/10 text-royal hover:bg-powder/20"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Notifications scroll list */}
+            <div className="space-y-3 overflow-y-auto max-h-[50vh] pr-1">
+              {notifications.map((notif) => (
+                <div
+                  key={notif.id}
+                  onClick={() => markNotificationRead(notif.id)}
+                  className={`p-3.5 rounded-2xl border transition-all text-left flex items-start space-x-3.5 relative ${
+                    notif.read
+                      ? "bg-powder/5 border-[#A9C0E0]/10 opacity-70"
+                      : "bg-[#F0F6F8]/40 border-blue-100 hover:border-blue-200 cursor-pointer"
+                  }`}
+                >
+                  {/* Category icon indicator */}
+                  <div className="w-9 h-9 rounded-xl bg-white border border-[#A9C0E0]/15 flex items-center justify-center shadow-inner mt-0.5">
+                    {getNotificationIcon(notif.type)}
+                  </div>
+
+                  {/* Body text content */}
+                  <div className="space-y-0.5 flex-1 pr-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-royal leading-tight">
+                        {notif.title}
+                      </span>
+                      <span className="text-[8px] font-mono font-bold text-powder">
+                        {new Date(notif.createdAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-royal/80 leading-normal">
+                      {notif.message}
+                    </p>
+                  </div>
+
+                  {/* Unread circle dot */}
+                  {!notif.read && (
+                    <span className="absolute top-4 right-4 w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                  )}
+                </div>
+              ))}
+
+              {notifications.length === 0 && (
+                <div className="text-center py-10 space-y-2">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 text-royal flex items-center justify-center mx-auto shadow-inner">
+                    <Bell className="w-5 h-5 text-powder" />
+                  </div>
+                  <h4 className="text-xs font-bold text-royal">Zero Unread Alerts</h4>
+                  <p className="text-[10px] text-powder leading-relaxed max-w-[200px] mx-auto">
+                    Excellent! All notifications checked. Complete lessons and quizzes to earn more milestone badges.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Privacy note */}
+            <div className="text-[9px] font-mono text-center text-powder uppercase tracking-wider">
+              🔔 Locally tracked system achievements
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 export default HomeTab;

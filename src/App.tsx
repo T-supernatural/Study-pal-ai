@@ -11,11 +11,12 @@ import UploadTab from "./components/UploadTab";
 import AudioTab from "./components/AudioTab";
 import ProfileTab from "./components/ProfileTab";
 import BottomNav from "./components/BottomNav";
+import { Onboarding } from "./components/Onboarding";
 import { Sparkles, Moon, Sun, Layers, HelpCircle, Trophy, Award, Zap, BookOpen } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 function AppContent() {
-  const { activeTab, themeMode, setThemeMode, recentlyUnlockedBadge, clearRecentBadge } = useApp();
+  const { activeTab, themeMode, setThemeMode, recentlyUnlockedBadge, clearRecentBadge, isOnboarded } = useApp();
 
   // Determine current active sub-component
   const renderActiveTab = () => {
@@ -84,6 +85,10 @@ function AppContent() {
 
   const badgeInfo = recentlyUnlockedBadge ? getBadgeDetails(recentlyUnlockedBadge) : null;
   const BadgeIcon = badgeInfo ? badgeInfo.icon : Sparkles;
+
+  if (!isOnboarded) {
+    return <Onboarding />;
+  }
 
   return (
     <div 

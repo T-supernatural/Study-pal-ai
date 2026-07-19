@@ -6,7 +6,7 @@ import {
   ChevronLeft, Search, Edit2, Play, CheckCircle, HelpCircle, 
   Trash2, Brain, Sparkles, BookOpen, Volume2, Check, AlertCircle,
   Clock, Award, ListChecks, GraduationCap, Target, Pause, RotateCcw, 
-  ArrowRight, Eye, FastForward, CheckSquare, Square, Save, Smile
+  ArrowRight, Eye, FastForward, CheckSquare, Square, Save, Smile, X
 } from "lucide-react";
 import { StudyNote, QuizQuestion, Flashcard } from "../types";
 
@@ -21,9 +21,13 @@ export const LibraryTab: React.FC = () => {
     toggleFlashcardMemorized,
     toggleConceptTicked,
     markAudioListened,
-    incrementStudyMinutes
+    incrementStudyMinutes,
+    lastDeletedNote,
+    undoDeleteNote,
+    clearLastDeletedNote
   } = useApp();
 
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [activeStudyTab, setActiveStudyTab] = useState<"notes" | "summary" | "flashcards" | "quiz">("notes");
@@ -191,10 +195,81 @@ export const LibraryTab: React.FC = () => {
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this study pack?")) {
-      deleteNote(id);
-    }
+    setDeleteCandidateId(id);
   };
+
+  const renderOverlays = () => (
+    <>
+      {/* Deletion Confirmation Modal Overlay */}
+      {deleteCandidateId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="w-full max-w-[280px] bg-white rounded-3xl p-5 shadow-2xl border border-powder/20 space-y-4 animate-scaleIn">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500 mx-auto">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+            
+            <div className="text-center space-y-1">
+              <h3 className="font-display text-sm font-bold text-royal">Delete Study Pack?</h3>
+              <p className="text-[10px] text-royal/60 leading-relaxed">
+                This will permanently delete your study progress, memorized cards, and quiz scores from this local device.
+              </p>
+            </div>
+
+            <div className="flex space-x-2 pt-1">
+              <button
+                onClick={() => setDeleteCandidateId(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#A9C0E0]/30 text-royal font-bold text-[10px] hover:bg-powder/5"
+              >
+                Keep Pack
+              </button>
+              <button
+                onClick={() => {
+                  if (deleteCandidateId) {
+                    deleteNote(deleteCandidateId);
+                    setDeleteCandidateId(null);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 text-white font-bold text-[10px] hover:bg-red-600 shadow-md shadow-red-100"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Undo Banner Toast */}
+      {lastDeletedNote && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm bg-zinc-900/95 backdrop-blur-sm border border-zinc-800 text-white rounded-2xl py-3 px-4 shadow-2xl flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-red-400">
+              <Trash2 className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5 text-left">
+              <p className="text-[11px] font-bold text-white leading-none">Lesson Deleted</p>
+              <p className="text-[9px] text-zinc-400 font-semibold line-clamp-1 max-w-[150px]">
+                {lastDeletedNote.title}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={undoDeleteNote}
+              className="text-xs font-bold text-blue-400 hover:text-blue-300"
+            >
+              Undo
+            </button>
+            <button
+              onClick={clearLastDeletedNote}
+              className="text-xs font-bold text-zinc-500 hover:text-zinc-400 p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
 
   // Render detail view if a note is selected
   if (activeNote) {
@@ -983,6 +1058,7 @@ export const LibraryTab: React.FC = () => {
             )}
           </div>
         )}
+        {renderOverlays()}
       </div>
     );
   }
@@ -1062,6 +1138,7 @@ export const LibraryTab: React.FC = () => {
           </div>
         )}
       </div>
+      {renderOverlays()}
     </div>
   );
 };

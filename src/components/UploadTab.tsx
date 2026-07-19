@@ -50,6 +50,95 @@ export const UploadTab: React.FC = () => {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
 
+  // Custom Live Camera states & refs
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const startCamera = async () => {
+    try {
+      setValidationError(null);
+      setCapturedPhotoUrl(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      setCameraStream(stream);
+      setIsCameraActive(true);
+      // Wait for React to render the video element and assign ref
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 200);
+    } catch (err: any) {
+      console.warn("MediaDevices getUserMedia failed or was blocked, falling back to input upload", err);
+      // Fallback: Click the normal mobile camera upload button
+      cameraInputRef.current?.click();
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setIsCameraActive(false);
+    setCapturedPhotoUrl(null);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.95);
+        setCapturedPhotoUrl(dataUrl);
+        // Stop stream tracks immediately to release the camera
+        if (cameraStream) {
+          cameraStream.getTracks().forEach(track => track.stop());
+          setCameraStream(null);
+        }
+      }
+    }
+  };
+
+  const usePhoto = () => {
+    if (!capturedPhotoUrl) return;
+    try {
+      // Convert dataURL to File
+      const filename = `camera-capture-${Date.now()}.jpg`;
+      const file = dataURLtoFile(capturedPhotoUrl, filename);
+      processImageFiles([file]);
+      stopCamera();
+    } catch (err) {
+      console.error("Failed to process captured camera photo:", err);
+      setValidationError("Failed to capture photo from webcam. Please try uploading an image from gallery instead.");
+    }
+  };
+
+  const retakePhoto = async () => {
+    setCapturedPhotoUrl(null);
+    await startCamera();
+  };
+
+  const dataURLtoFile = (dataurl: string, filename: string): File => {
+    const arr = dataurl.split(",");
+    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new File([u8arr], filename, { type: mime });
+  };
+
   // Define initial steps dynamically based on file type
   const initStages = (isPdf: boolean): ProcessingStage[] => [
     { id: "upload", label: "Upload Complete", status: "idle" },
@@ -925,7 +1014,13 @@ export const UploadTab: React.FC = () => {
               return (
                 <button
                   key={i}
-                  onClick={() => btn.ref.current?.click()}
+                  onClick={() => {
+                    if (btn.label === "Camera Capture") {
+                      startCamera();
+                    } else {
+                      btn.ref.current?.click();
+                    }
+                  }}
                   className="neumorphic-card rounded-2xl p-4 flex flex-col items-center justify-center space-y-2 hover:scale-105 active:scale-95 transition-all duration-300 border border-white"
                 >
                   <Icon className={`w-5 h-5 ${btn.color}`} />
@@ -1112,6 +1207,84 @@ export const UploadTab: React.FC = () => {
             </div>
           </div>
         </NeumorphicCard>
+      )}
+
+      {/* Live Camera Modal Overlay */}
+      {isCameraActive && (
+        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col justify-between p-6">
+          <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center space-y-6">
+            <div className="text-center space-y-1">
+              <h3 className="font-display text-base font-bold text-white">Camera Capture</h3>
+              <p className="text-[10px] text-zinc-400 font-mono tracking-wider uppercase">
+                {capturedPhotoUrl ? "Verify & Process Photo" : "Align notes inside the frame"}
+              </p>
+            </div>
+
+            {/* Video Viewfinder / Captured Photo Frame */}
+            <div className="relative aspect-[3/4] w-full rounded-3xl bg-zinc-950 border border-zinc-800 overflow-hidden shadow-2xl flex items-center justify-center">
+              {!capturedPhotoUrl ? (
+                <>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover rounded-3xl"
+                  />
+                  {/* Visual Crop Overlay Guidance Ring */}
+                  <div className="absolute inset-4 border-2 border-dashed border-white/20 rounded-2xl pointer-events-none flex items-center justify-center">
+                    <span className="text-[9px] text-white/40 font-mono uppercase tracking-widest bg-black/40 px-3 py-1 rounded-full">
+                      Viewfinder Area
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <img
+                  src={capturedPhotoUrl}
+                  alt="Captured Note"
+                  className="w-full h-full object-cover rounded-3xl"
+                />
+              )}
+            </div>
+
+            {/* Control Shutter Buttons Panel */}
+            <div className="flex items-center justify-center space-x-6">
+              {!capturedPhotoUrl ? (
+                <>
+                  <button
+                    onClick={stopCamera}
+                    className="px-5 py-2.5 rounded-full border border-zinc-700 hover:border-zinc-500 text-zinc-300 text-xs font-bold transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={capturePhoto}
+                    className="w-16 h-16 rounded-full bg-white border-4 border-zinc-400 flex items-center justify-center text-zinc-950 shadow-lg active:scale-95 transition-all hover:bg-zinc-100"
+                    title="Take Snapshot"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-white border-2 border-zinc-950" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={retakePhoto}
+                    className="px-5 py-2.5 rounded-full bg-zinc-800 text-white text-xs font-bold border border-zinc-700 hover:bg-zinc-700 transition-all"
+                  >
+                    Retake Photo
+                  </button>
+                  <button
+                    onClick={usePhoto}
+                    className="px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-500 to-royal text-white text-xs font-bold shadow-lg hover:from-blue-600 transition-all"
+                  >
+                    Use Photo
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+          
+          <canvas ref={canvasRef} className="hidden" />
+        </div>
       )}
     </div>
   );

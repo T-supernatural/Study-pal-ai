@@ -1,0 +1,10 @@
+{
+  "name": "StudyPal AI",
+  "description": "An AI-powered study companion to convert handwritten and printed notes into interactive study material.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
